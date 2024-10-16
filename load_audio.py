@@ -1,6 +1,7 @@
 import boto3
 import os
 import librosa
+import numpy as np
 import soundfile as sf
 
 #AWS S3 configurations
@@ -43,20 +44,13 @@ def process_audio_file(file_path):
         audio_data, sample_rate = librosa.load(file_path, sr = None)
         print(f"Loaded file with sample rate: {sample_rate}")
 
-        #convert to numerical time-series data (amplitude over time)
-        duration = librosa.get_duration(audio_data, sr=sample_rate)
-        print(f"Duration of the audio file: {duration} seconds")
-
-        #optionally save the time-series data(for further processing)
-        output_file = file_path.replace('.wav', '_processed.wab').replace('.mp3','_processed.wav')
-        sf.write(output_file, audio_data, sample_rate)
-        print(f"Processed file saved as {output_file}")
-
-        return audio_data, sample_rate
+        #Save the amplitude over time data as a .npy file
+        output_file = file_path.replace('wav', '_waveform.npy').replace('mp3','waveform.npy')
+        np.save(output_file, audio_data)
+        print(f"Waveform saved as '{output_file}")
     
     except Exception as e:
         print(f"Error processing {file_path}: {e}")
-        return None, None
 
 def main():
     #step 1: download audio files from s3
@@ -64,8 +58,7 @@ def main():
 
     #step 2: process the audio files
     for audio_file in audio_files:
-        audio_data, sample_rate = process_audio_file(audio_file)
-        #conversion to mel spectrogram can be added here
+        process_audio_file(audio_file)
 
 if __name__ == "__main__":
     main()
