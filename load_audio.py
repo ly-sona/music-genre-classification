@@ -6,7 +6,7 @@ import soundfile as sf
 
 #AWS S3 configurations
 bucketName = 's3-bucket-name' #need to replace with s3 bucket name
-S3_PREFIX = 'audi/' #folder path in the bucket if any
+S3_PREFIX = 'audio/' #folder path in the bucket if any
 downloads = './downloads'
 
 #Inirialize S3 client
