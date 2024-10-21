@@ -4,26 +4,26 @@ import librosa.display
 import matplotlib.pyplot as plt
 
 def load_audio(file_path, sample_rate=22050):
-    """Loads an audio file as a waveform."""
+    #Loads an audio file as a waveform.
     audio, sr = librosa.load(file_path, sr=sample_rate)
     return audio, sr
 
 def time_shift(audio, shift_max=0.5):
-    """Randomly shifts the audio along the time axis."""
+    #Randomly shifts the audio along the time axis.
     shift_amount = int(np.random.uniform(-shift_max, shift_max) * len(audio))
     return np.roll(audio, shift_amount)
 
 def pitch_shift(audio, sr, n_steps=2):
-    """Shifts the pitch of the audio by n_steps semitones."""
+    #Shifts the pitch of the audio by n_steps semitones.
     return librosa.effects.pitch_shift(audio, sr=sr, n_steps=n_steps)
 
 def add_noise(audio, noise_factor=0.005):
-    """Adds random noise to the audio to simulate real-world conditions."""
+    #Adds random noise to the audio to simulate real-world conditions.
     noise = np.random.randn(len(audio))
     return audio + noise_factor * noise
 
 def generate_spectrogram(audio, sr, ax, title):
-    """Generates a mel-spectrogram and displays it on a given subplot axis."""
+    #Generates a mel-spectrogram and displays it on a given subplot axis.
     S = librosa.feature.melspectrogram(y=audio, sr=sr)
     S_db = librosa.power_to_db(S, ref=np.max)
 
