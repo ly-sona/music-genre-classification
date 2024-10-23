@@ -10,7 +10,7 @@ import librosa.display
 
 # AWS S3 configurations
 bucketName = 'aims3'  # Replace with your actual S3 bucket name
-genre_folders = ['Raw data/pop/']  # Folder paths in the bucket if any
+genre_folders = ['Raw data/pop/', 'Raw data/Tollywood', 'Raw data/Folk Songs Dataset', 'Raw data/Reggae Songs Dataset', 'Raw data/Classical', 'Raw data/Electronic', 'Raw data/Hip Hop', 'Raw data/Jazz', 'Raw data/RnB', 'Raw data/Rock']  # Folder paths in the bucket if any
 
 # Initialize S3 client
 s3 = boto3.client('s3')
