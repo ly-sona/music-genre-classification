@@ -9,6 +9,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import shutil
 import librosa.display
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 
 # Configure logging
 logging.basicConfig(
@@ -20,13 +21,39 @@ logging.basicConfig(
 
 # AWS S3 configurations
 bucketName = 'aims3'  # Replace with your actual S3 bucket name
-genre_folders = ['Raw data/pop/', 'Raw data/Tollywood/', 'Raw data/Folk Songs Dataset/', 'Raw data/Reggae Songs Dataset/', 'Raw data/Classical/', 'Raw data/Electronic/', 'Raw data/Hip Hop/', 'Raw data/Jazz/', 'Raw data/RnB/', 'Raw data/Rock/']  # Folder paths in the bucket if any
+genre_folders = ['Raw data/pop/', 'Raw data/Tollywood/', 'Raw data/Folk Songs Dataset/', 'Raw data/Reggae Songs Dataset/', 
+                 'Raw data/Classical/', 'Raw data/Electronic/', 'Raw data/Hip Hop/', 'Raw data/Jazz/', 
+                 'Raw data/RnB/', 'Raw data/Rock/']  # Folder paths in the bucket if any
 
 # Initialize S3 client
-s3 = boto3.client('s3')
+def initialize_s3_client():
+    """Initialize the S3 client and handle any credential issues."""
+    try:
+        s3 = boto3.client('s3')
+        # Make a simple call to test credentials
+        s3.list_buckets()  # If this works, credentials are valid
+        logging.info("Successfully connected to S3 with valid credentials.")
+        return s3
+    except NoCredentialsError:
+        logging.error("AWS credentials not found. Please configure them using 'aws configure' or set the environment variables.")
+        print("Error: AWS credentials not found. Please configure them using 'aws configure'.")
+        return None
+    except PartialCredentialsError:
+        logging.error("Incomplete AWS credentials. Please ensure both Access Key ID and Secret Access Key are set.")
+        print("Error: Incomplete AWS credentials. Please ensure both Access Key ID and Secret Access Key are set.")
+        return None
+    except Exception as e:
+        logging.error(f"Failed to initialize S3 client: {e}")
+        print(f"Error: Failed to initialize S3 client: {e}")
+        return None
 
-def load_audio(bucketname, s3_prefix):
+# Load audio from S3 bucket
+def load_audio(s3, bucketname, s3_prefix):
     """Download audio files from S3 bucket into memory."""
+    if not s3:
+        logging.error("S3 client is not initialized. Skipping audio loading.")
+        return []
+
     try:
         # List all objects under the specified S3 prefix
         response = s3.list_objects_v2(Bucket=bucketname, Prefix=s3_prefix)
@@ -56,49 +83,7 @@ def load_audio(bucketname, s3_prefix):
         print(f"Error listing objects from S3: {e}")
         return []
 
-def time_shift(audio, shift_max=0.5):
-    """Randomly shifts the audio along the time axis."""
-    shift_amount = int(np.random.uniform(-shift_max, shift_max) * len(audio))
-    return np.roll(audio, shift_amount)
-
-def generate_spectrogram(audio_data, sample_rate):
-    """Generates spectrogram from audio data."""
-    try:
-        spectrogram = librosa.feature.melspectrogram(
-            y=audio_data, sr=sample_rate, n_mels=128, fmax=8000)
-        spectrogram_db = librosa.power_to_db(spectrogram, ref=np.max)
-        return spectrogram_db
-    except Exception as e:
-        logging.error(f"Error generating spectrogram: {e}")
-        print(f"Error generating spectrogram: {e}")
-        return None
-
-def normalize_spectrogram(spectrogram_db):
-    """Normalize spectrogram data to range [0,1]."""
-    try:
-        min_val = np.min(spectrogram_db)
-        max_val = np.max(spectrogram_db)
-        normalized_spectrogram = (spectrogram_db - min_val) / (max_val - min_val)
-        return normalized_spectrogram
-    except Exception as e:
-        logging.error(f"Error normalizing spectrogram: {e}")
-        print(f"Error normalizing spectrogram: {e}")
-        return None
-
-def upload_array_to_s3(array, bucket_name, s3_key):
-    """Uploads a NumPy array to S3 as a .npy file without saving locally."""
-    buffer = io.BytesIO()
-    try:
-        np.save(buffer, array)
-        buffer.seek(0)
-        s3.put_object(Bucket=bucket_name, Key=s3_key, Body=buffer.getvalue())
-        logging.info(f"Uploaded array to S3 at '{s3_key}'")
-        print(f"Uploaded array to S3 at '{s3_key}'")
-    except Exception as e:
-        logging.error(f"Failed to upload array to S3 at '{s3_key}': {e}")
-        print(f"Failed to upload array to S3 at '{s3_key}': {e}")
-
-def process_audio_file(audio_file, raw_spectrogram_s3_prefix,
+def process_audio_file(audio_file, s3, raw_spectrogram_s3_prefix,
                        normalized_spectrogram_s3_prefix,
                        augmented_spectrogram_s3_prefix):
     """Processes an audio file, generates spectrograms, normalizes, and uploads to S3."""
@@ -148,19 +133,27 @@ def process_audio_file(audio_file, raw_spectrogram_s3_prefix,
             augmented_spectrogram_s3_prefix, f"{base_name}_augmented_spectrogram.npy")
 
         # Upload raw spectrogram to S3
-        upload_array_to_s3(spectrogram_db, bucketName, raw_spectrogram_s3_key)
+        upload_array_to_s3(spectrogram_db, s3, bucketName, raw_spectrogram_s3_key)
 
         # Upload normalized spectrogram to S3
-        upload_array_to_s3(normalized_spectrogram, bucketName, normalized_spectrogram_s3_key)
+        upload_array_to_s3(normalized_spectrogram, s3, bucketName, normalized_spectrogram_s3_key)
 
         # Upload augmented spectrogram to S3
-        upload_array_to_s3(augmented_spectrogram_db, bucketName, augmented_spectrogram_s3_key)
+        upload_array_to_s3(augmented_spectrogram_db, s3, bucketName, augmented_spectrogram_s3_key)
 
     except Exception as e:
         logging.error(f"Error processing {s3_key}: {e}")
         print(f"Error processing {s3_key}: {e}")
 
 def main():
+    # Initialize S3 client and check credentials
+    s3 = initialize_s3_client()
+
+    # If the S3 client isn't initialized properly, exit the script
+    if not s3:
+        print("S3 client initialization failed. Exiting.")
+        return
+
     # S3 prefixes for uploading spectrograms (ensure they end with a forward slash)
     raw_spectrogram_s3_prefix = 'Raw spectogram data/'
     normalized_spectrogram_s3_prefix = 'Normalized data/'
@@ -173,7 +166,7 @@ def main():
     for genre in genre_folders:
         logging.info(f"Processing genre folder: {genre}")
         print(f"Processing genre folder: {genre}")
-        audio_files = load_audio(bucketName, genre)
+        audio_files = load_audio(s3, bucketName, genre)
 
         if not audio_files:
             logging.warning(f"No audio files found for genre folder: {genre}")
@@ -185,6 +178,7 @@ def main():
         for audio_file in tqdm(audio_files, desc='Processing audio files'):
             process_audio_file(
                 audio_file,
+                s3,
                 raw_spectrogram_s3_prefix,
                 normalized_spectrogram_s3_prefix,
                 augmented_spectrogram_s3_prefix)
