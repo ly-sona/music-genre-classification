@@ -24,7 +24,8 @@ model.add(MaxPooling2D((2, 2)))
 model.add(Flatten()) #Flattens it to a 1D Vector
 model.add(Dense(128, activation='relu')) #apply classification
 model.add(Dropout(0.5)) # prevents overfitting
-model.add(Dense(data_generator.n_classes, activation='softmax') ) 
+model.add(Dense(num_classes, activation='softmax'))
+
 
 
 model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy']) ##compling model
