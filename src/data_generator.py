@@ -2,7 +2,7 @@ import os
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-Sequence = keras.utils.Sequence # needs to be in this format, otherwise the import doesn't work (for me at least)
+Sequence = keras.utils.Sequence  # Ensure keras.utils.Sequence import works
 
 # Mapping of genre names to numerical IDs
 genre_map = {
@@ -18,7 +18,7 @@ genre_map = {
     'Tollywood': 10
 }
 
-# List of genre dirs, just modify these for testing
+# List of genre directories
 genre_folders = [
     '~/aims3/Augmented data/Classical',
     '~/aims3/Augmented data/Electronic',
@@ -32,7 +32,7 @@ genre_folders = [
     '~/aims3/Augmented data/Tollywood'
 ]
 
-# maps files to genre int
+# Map files to genre IDs
 def map_genre_files(genre_folders, genre_map):
     file_mappings = []
     for directory in genre_folders:
@@ -46,17 +46,16 @@ def map_genre_files(genre_folders, genre_map):
                     file_mappings.append((genre_id, file_path))
     return file_mappings
 
-# Generate the mappings
+# Generate mappings
 data_index = map_genre_files(genre_folders, genre_map)
 
-
-# normalizes to dimensions (128, 1024, 1)
+# Normalize to dimensions (128, 1024, 1)
 def preprocess_spectrogram(spectrogram):
     target_height = 128
     target_width = 1024
     current_height, current_width = spectrogram.shape
 
-    # Resize or pad the height
+    # Resize or pad height
     if current_height < target_height:
         padding_height = target_height - current_height
         top_padding = padding_height // 2
@@ -67,7 +66,7 @@ def preprocess_spectrogram(spectrogram):
     else:
         padded_spectrogram = spectrogram
 
-    # Resize or pad the width
+    # Resize or pad width
     current_height, current_width = padded_spectrogram.shape
     if current_width < target_width:
         padding_width = target_width - current_width
@@ -77,9 +76,8 @@ def preprocess_spectrogram(spectrogram):
     elif current_width > target_width:
         padded_spectrogram = np.resize(padded_spectrogram, (current_height, target_width))
 
-    # Add a channel dimension
+    # Add channel dimension
     padded_spectrogram = np.expand_dims(padded_spectrogram, axis=-1)
-
     return padded_spectrogram
 
 class DataGenerator(Sequence):
@@ -118,14 +116,14 @@ class DataGenerator(Sequence):
     def load_spectrogram(self, file_path):
         return np.load(file_path)
 
-# Example usage:
-batch_size = 64
-input_shape = (128, 1024, 1)
-num_classes = len(genre_map)
+# Function to create data generators
+def create_data_generators(train_dir, val_dir, img_height=128, img_width=1024, batch_size=32):
+    # Generate mappings for train and validation directories
+    train_index = map_genre_files([train_dir], genre_map)
+    val_index = map_genre_files([val_dir], genre_map)
 
-data_generator = DataGenerator(
-    data_index=data_index,
-    batch_size=batch_size,
-    input_shape=input_shape,
-    num_classes=num_classes
-)
+    # Initialize train and validation generators
+    train_generator = DataGenerator(data_index=train_index, batch_size=batch_size, input_shape=(img_height, img_width, 1), num_classes=len(genre_map))
+    val_generator = DataGenerator(data_index=val_index, batch_size=batch_size, input_shape=(img_height, img_width, 1), num_classes=len(genre_map))
+
+    return train_generator, val_generator
