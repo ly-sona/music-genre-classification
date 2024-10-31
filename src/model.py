@@ -15,7 +15,7 @@ train_generator = DataGenerator(train_index, batch_size, input_shape=input_shape
 val_generator = DataGenerator(val_index, batch_size, input_shape=input_shape, num_classes=num_classes, shuffle=False)
 
 model = Sequential() ##defining the model
-model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(128, 128, 1))) #Apply convolution operations to extract features using filters.
+model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(128, 1024, 1))) #Apply convolution operations to extract features using filters.
 model.add(MaxPooling2D((2, 2))) #Reduce the spatial dimensions, helping to down-sample the input and reduce computational load.
 model.add(Conv2D(64, (3, 3), activation='relu')) #doing it two more times
 model.add(MaxPooling2D((2, 2)))
