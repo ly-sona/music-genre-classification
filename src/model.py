@@ -1,7 +1,6 @@
 from tensorflow import keras
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout  # Correct import for layers
-from tensorflow.keras.models import Sequential
-Conv2D, MaxPooling2D, Flatten, Dense, Dropout = keras.layers  
+from tensorflow.keras.models import Sequential  
 from data_generator import *
 
 
