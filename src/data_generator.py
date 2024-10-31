@@ -6,16 +6,16 @@ Sequence = keras.utils.Sequence  # Ensure keras.utils.Sequence import works
 
 # Mapping of genre names to numerical IDs
 genre_map = {
-    'Classical': 1,
-    'Electronic': 2,
-    'Folk': 3,
-    'Hip_Hop': 4,
-    'Jazz': 5,
-    'Pop': 6,
-    'Reggae': 7,
-    'Rnb': 8,
-    'Rock': 9,
-    'Tollywood': 10
+    'Classical': 0,
+    'Electronic': 1,
+    'Folk': 2,
+    'Hip_Hop': 3,
+    'Jazz': 4,
+    'Pop': 5,
+    'Reggae': 6,
+    'Rnb': 7,
+    'Rock': 8,
+    'Tollywood': 9
 }
 
 # List of genre directories
