@@ -2,6 +2,11 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
 from data_generator import *
 
+
+data_index = map_genre_files(genre_folders, genre_map)
+split_idx = int(0.8 * len(data_index)) 
+train_index = data_index[:split_idx]
+val_index = data_index[split_idx:]
 batch_size = 64
 input_shape = (128, 1024, 1)
 num_classes = len(genre_map)
