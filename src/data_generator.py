@@ -109,9 +109,15 @@ class DataGenerator(Sequence):
             genre_id, file_path = self.data_index[idx]
             spectrogram = self.load_spectrogram(file_path)
             X[i] = preprocess_spectrogram(spectrogram)
+        
+        # Ensure genre_id is within expected range
+            if genre_id < 0 or genre_id >= self.num_classes:
+                raise ValueError(f"Invalid genre_id {genre_id} for file {file_path}")
+
             y[i] = genre_id
 
         return X, tf.keras.utils.to_categorical(y, num_classes=self.num_classes)
+
 
     def load_spectrogram(self, file_path):
         return np.load(file_path)

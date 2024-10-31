@@ -9,7 +9,7 @@ s3 = session.resource('s3')
 bucket_name = 'aims3'  # Replace with your actual bucket name
 augmented_data_prefix = 'Augmented data/'  # Main path in the bucket
 
-# Function to list all files from S3, including those in subfolders
+# Function to l ist all files from S3, including those in subfolders
 def list_files_in_s3(prefix):
     bucket = s3.Bucket(bucket_name)
     return [obj.key for obj in bucket.objects.filter(Prefix=prefix) if not obj.key.endswith('/')]
