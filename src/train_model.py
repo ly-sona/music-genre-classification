@@ -2,7 +2,8 @@
 
 import os
 import tensorflow as tf
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow import keras
+EarlyStopping, ModelCheckpoint = keras.util.callbacks 
 from data_generator import create_data_generators
 from model import create_cnn_model
 import matplotlib.pyplot as plt
