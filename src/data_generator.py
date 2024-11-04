@@ -1,8 +1,14 @@
+import boto3
 import os
 import numpy as np
-import tensorflow as tf
+from io import BytesIO
 from tensorflow import keras
+import pandas as pd
+import logging
 Sequence = keras.utils.Sequence  # Ensure keras.utils.Sequence import works
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Mapping of genre names to numerical IDs
 genre_map = {
@@ -89,8 +95,11 @@ class DataGenerator(Sequence):
         self.shuffle = shuffle
         self.on_epoch_end()
 
+        # Initialize boto3 S3 client for S3 data loading
+        self.s3_client = boto3.client('s3')
+
     def __len__(self):
-        return int(np.ceil(len(self.data_index) / self.batch_size))  # Use ceil to include last batch
+        return int(np.ceil(len(self.data_index) / self.batch_size))
 
     def __getitem__(self, index):
         indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
@@ -107,17 +116,38 @@ class DataGenerator(Sequence):
         y = np.empty((current_batch_size), dtype=int)
 
         for i, idx in enumerate(indexes):
-            genre_id, file_path = self.data_index[idx]
-            spectrogram = self.load_spectrogram(file_path)
-            X[i] = preprocess_spectrogram(spectrogram)
-        
-            # Ensure genre_id is within expected range
-            if genre_id < 0 or genre_id >= self.num_classes:
-                raise ValueError(f"Invalid genre_id {genre_id} for file {file_path}")
+            file_path, genre_label, genre_index = self.data_index[idx]
 
-            y[i] = genre_id
+            # Check if the file_path is an S3 path
+            if file_path.startswith("s3://"):
+                bucket_name, key = self.parse_s3_path(file_path)
+                spectrogram = self.load_spectrogram_from_s3(bucket_name, key)
+            else:
+                raise ValueError(f"Expected S3 path, got: {file_path}")
 
-        return X, tf.keras.utils.to_categorical(y, num_classes=self.num_classes)
+            X[i] = self.preprocess_spectrogram(spectrogram)
+            y[i] = genre_index
+
+        return X, keras.utils.to_categorical(y, num_classes=self.num_classes)
+
+    def parse_s3_path(self, s3_path):
+        # Remove the "s3://" prefix and split the bucket name and key
+        s3_path = s3_path.replace("s3://", "")
+        bucket_name, key = s3_path.split("/", 1)
+        return bucket_name, key
+
+    def load_spectrogram_from_s3(self, bucket_name, key):
+        try:
+            response = self.s3_client.get_object(Bucket=bucket_name, Key=key)
+            spectrogram_bytes = response['Body'].read()
+            spectrogram = np.load(BytesIO(spectrogram_bytes))
+            return spectrogram
+        except self.s3_client.exceptions.NoSuchKey:
+            logger.error(f"S3 key not found: {key}")
+            raise FileNotFoundError(f"S3 key not found: {key}")
+        except Exception as e:
+            logger.error(f"Error loading spectrogram from S3: {key}, error: {e}")
+            raise e
 
 
     def load_spectrogram(self, file_path):
