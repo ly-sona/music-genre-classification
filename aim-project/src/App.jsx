@@ -28,9 +28,7 @@ function App() {
         <p>[Results display placeholder]</p>
       </div>
 
-      <footer className="landing-footer">
-        <p>© 2024 Your Company. All rights reserved.</p>
-      </footer>
+     
     </>
   )
 }
