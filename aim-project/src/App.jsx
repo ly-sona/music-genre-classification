@@ -5,6 +5,7 @@ import './App.css'
 import './components/FileUpload'
 import FileUpload from './components/FileUpload'
 import ResultsDisplay from './components/ResultsDisplay'
+import Loading from './components/Loading'
 
 function App() {
   const [count, setCount] = useState(0)
@@ -27,11 +28,14 @@ function App() {
       <div className="loading-placeholder">
         <p>[Loading indicator placeholder]</p>
       </div>
-
+      <Loading/>
+     
       <div className="results-placeholder">
         <p>[Results display placeholder]</p>
       </div>
       <ResultsDisplay/>
+      
+      
 
 
     </>
