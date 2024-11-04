@@ -4,7 +4,7 @@ import viteLogo from '/vite.svg'
 import './App.css'
 import './components/FileUpload'
 import FileUpload from './components/FileUpload'
-import Loading from './components/Loading'
+import ResultsDisplay from './components/ResultsDisplay'
 
 function App() {
   const [count, setCount] = useState(0)
@@ -18,11 +18,22 @@ function App() {
           <li>About us</li>
         </ul>
       </div>
-     
+      <section id="upload" className="upload-section">
+        <h2>Upload Your File</h2>
+        <p>[File upload placeholder]</p>
+      </section>
       <FileUpload/>
-      <Loading/>
+
+      <div className="loading-placeholder">
+        <p>[Loading indicator placeholder]</p>
+      </div>
+
+      <div className="results-placeholder">
+        <p>[Results display placeholder]</p>
+      </div>
       <ResultsDisplay/>
-     
+
+
     </>
   )
 }
