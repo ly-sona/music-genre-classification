@@ -10,8 +10,8 @@ def main():
     TRAIN_DIR = 'data/train'
     VAL_DIR = 'data/validation'
     BATCH_SIZE = 32
-    IMG_HEIGHT = 224
-    IMG_WIDTH = 224
+    IMG_HEIGHT = 128
+    IMG_WIDTH = 1024
     NUM_CLASSES = 10  # Update based on your dataset
     EPOCHS = 50
     MODEL_SAVE_DIR = 'models'
@@ -30,10 +30,10 @@ def main():
     )
 
     # 3. Create and compile the model
-    model = create_cnn_model(input_shape=(IMG_HEIGHT, IMG_WIDTH, 3), num_classes=NUM_CLASSES)
+    model = create_cnn_model(input_shape=(IMG_HEIGHT, IMG_WIDTH, 1), num_classes=NUM_CLASSES)
     model.compile(
         optimizer=tf.keras.optimizers.Adam(),
-        loss='sparse_categorical_crossentropy',
+        loss='categorical_crossentropy',
         metrics=['accuracy']
     )
 
