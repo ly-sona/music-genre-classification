@@ -43,7 +43,7 @@ def main():
     model_checkpoint = ModelCheckpoint(
         filepath=checkpoint_path,
         monitor='val_loss',
-        save_best_only=True
+        save_best_only=True,
         save_format='h5'
     )
 
