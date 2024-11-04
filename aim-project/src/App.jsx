@@ -2,6 +2,8 @@ import { useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
+import './components/FileUpload'
+import FileUpload from './components/FileUpload'
 
 function App() {
   const [count, setCount] = useState(0)
@@ -19,6 +21,7 @@ function App() {
         <h2>Upload Your File</h2>
         <p>[File upload placeholder]</p>
       </section>
+      <FileUpload/>
 
       <div className="loading-placeholder">
         <p>[Loading indicator placeholder]</p>
