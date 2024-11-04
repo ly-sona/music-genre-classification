@@ -27,7 +27,7 @@ data = [(file_path, extract_genre(file_path)) for file_path in file_paths]
 
 # Extract unique genres and assign integer indices (starting from 1)
 unique_genres = sorted(set(genre for _, genre in data))
-genre_to_index = {genre: idx + 1 for idx, genre in enumerate(unique_genres)}  # Start at 1
+genre_to_index = {genre: idx for idx, genre in enumerate(unique_genres)}  # Start at 0
 
 # Map each file path to its genre index and label
 encoded_data = [(file_path, genre, genre_to_index[genre]) for file_path, genre in data]

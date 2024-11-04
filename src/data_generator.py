@@ -90,7 +90,7 @@ class DataGenerator(Sequence):
         self.on_epoch_end()
 
     def __len__(self):
-        return len(self.data_index) // self.batch_size
+        return int(np.ceil(len(self.data_index) / self.batch_size))  # Use ceil to include last batch
 
     def __getitem__(self, index):
         indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
@@ -102,15 +102,16 @@ class DataGenerator(Sequence):
             np.random.shuffle(self.indexes)
 
     def __data_generation(self, indexes):
-        X = np.empty((self.batch_size, *self.input_shape))
-        y = np.empty((self.batch_size), dtype=int)
+        current_batch_size = len(indexes)
+        X = np.empty((current_batch_size, *self.input_shape))
+        y = np.empty((current_batch_size), dtype=int)
 
         for i, idx in enumerate(indexes):
             genre_id, file_path = self.data_index[idx]
             spectrogram = self.load_spectrogram(file_path)
             X[i] = preprocess_spectrogram(spectrogram)
         
-        # Ensure genre_id is within expected range
+            # Ensure genre_id is within expected range
             if genre_id < 0 or genre_id >= self.num_classes:
                 raise ValueError(f"Invalid genre_id {genre_id} for file {file_path}")
 
@@ -123,13 +124,29 @@ class DataGenerator(Sequence):
         return np.load(file_path)
 
 # Function to create data generators
-def create_data_generators(train_dir, val_dir, img_height=128, img_width=1024, batch_size=32):
-    # Generate mappings for train and validation directories
-    train_index = map_genre_files([train_dir], genre_map)
-    val_index = map_genre_files([val_dir], genre_map)
+def create_data_generators(train_csv_file, val_csv_file, img_height=128, img_width=1024, batch_size=32):
+    import pandas as pd
+
+    # Load training data index from CSV
+    train_data = pd.read_csv(train_csv_file)
+    train_index = list(zip(train_data['genre_label'], train_data['file_path']))
+
+    # Load validation data index from CSV
+    val_data = pd.read_csv(val_csv_file)
+    val_index = list(zip(val_data['genre_label'], val_data['file_path']))
 
     # Initialize train and validation generators
-    train_generator = DataGenerator(data_index=train_index, batch_size=batch_size, input_shape=(img_height, img_width, 1), num_classes=len(genre_map))
-    val_generator = DataGenerator(data_index=val_index, batch_size=batch_size, input_shape=(img_height, img_width, 1), num_classes=len(genre_map))
+    train_generator = DataGenerator(
+        data_index=train_index,
+        batch_size=batch_size,
+        input_shape=(img_height, img_width, 1),
+        num_classes=len(genre_map)
+    )
+    val_generator = DataGenerator(
+        data_index=val_index,
+        batch_size=batch_size,
+        input_shape=(img_height, img_width, 1),
+        num_classes=len(genre_map)
+    )
 
     return train_generator, val_generator

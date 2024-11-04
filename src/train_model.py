@@ -17,10 +17,13 @@ def main():
     MODEL_SAVE_DIR = 'models'
     os.makedirs(MODEL_SAVE_DIR, exist_ok=True)
 
+    TRAIN_CSV = 'train_data_index.csv'
+    VAL_CSV = 'val_data_index.csv'
+
     # 2. Create data generators
     train_generator, val_generator = create_data_generators(
-        train_dir=TRAIN_DIR,
-        val_dir=VAL_DIR,
+        train_csv_file=TRAIN_CSV,
+        val_csv_file=VAL_CSV,
         img_height=IMG_HEIGHT,
         img_width=IMG_WIDTH,
         batch_size=BATCH_SIZE
