@@ -155,26 +155,26 @@ class DataGenerator(Sequence):
 
 # Function to create data generators
 def create_data_generators(train_csv_file, val_csv_file, img_height=128, img_width=1024, batch_size=32):
-    # Load training data index from CSV with three columns
+    # Read the training CSV and ensure all columns are loaded
     train_data = pd.read_csv(train_csv_file)
     train_index = list(zip(train_data['file_path'], train_data['genre_label'], train_data['genre_index']))
 
-    # Load validation data index from CSV with three columns
+    # Read the validation CSV and ensure all columns are loaded
     val_data = pd.read_csv(val_csv_file)
     val_index = list(zip(val_data['file_path'], val_data['genre_label'], val_data['genre_index']))
 
-    # Initialize train and validation generators
+    # Create DataGenerator instances
     train_generator = DataGenerator(
         data_index=train_index,
         batch_size=batch_size,
         input_shape=(img_height, img_width, 1),
-        num_classes=len(genre_map)
+        num_classes=len(train_data['genre_index'].unique())  # Dynamically set num_classes
     )
     val_generator = DataGenerator(
         data_index=val_index,
         batch_size=batch_size,
         input_shape=(img_height, img_width, 1),
-        num_classes=len(genre_map)
+        num_classes=len(train_data['genre_index'].unique())  # Dynamically set num_classes
     )
 
     return train_generator, val_generator
