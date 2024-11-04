@@ -31,6 +31,7 @@ function App() {
       <div className="results-placeholder">
         <p>[Results display placeholder]</p>
       </div>
+      <ResultsDisplay/>
 
      
     </>
