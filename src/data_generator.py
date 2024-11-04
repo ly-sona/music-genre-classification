@@ -24,7 +24,38 @@ genre_map = {
     'Tollywood': 9
 }
 
-# Normalize spectrogram dimensions to (128, 1024, 1)
+# List of genre directories
+genre_folders = [
+    '~/aims3/Augmented data/Classical',
+    '~/aims3/Augmented data/Electronic',
+    '~/aims3/Augmented data/Folk',
+    '~/aims3/Augmented data/Hip_Hop',
+    '~/aims3/Augmented data/Jazz',
+    '~/aims3/Augmented data/Pop',
+    '~/aims3/Augmented data/Reggae',
+    '~/aims3/Augmented data/Rnb',
+    '~/aims3/Augmented data/Rock',
+    '~/aims3/Augmented data/Tollywood'
+]
+
+# Map files to genre IDs
+def map_genre_files(genre_folders, genre_map):
+    file_mappings = []
+    for directory in genre_folders:
+        genre_name = os.path.basename(directory)
+        genre_id = genre_map.get(genre_name, -1)
+        expanded_directory = os.path.expanduser(directory)
+        for root, _, files in os.walk(expanded_directory):
+            for file in files:
+                if file.endswith('.npy'):
+                    file_path = os.path.join(root, file)
+                    file_mappings.append((genre_id, file_path))
+    return file_mappings
+
+# Generate mappings
+data_index = map_genre_files(genre_folders, genre_map)
+
+# Normalize to dimensions (128, 1024, 1)
 def preprocess_spectrogram(spectrogram):
     target_height = 128
     target_width = 1024
@@ -117,6 +148,10 @@ class DataGenerator(Sequence):
         except Exception as e:
             logger.error(f"Error loading spectrogram from S3: {key}, error: {e}")
             raise e
+
+
+    def load_spectrogram(self, file_path):
+        return np.load(file_path)
 
 # Function to create data generators
 def create_data_generators(train_csv_file, val_csv_file, img_height=128, img_width=1024, batch_size=32):

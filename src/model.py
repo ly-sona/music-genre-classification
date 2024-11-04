@@ -50,8 +50,10 @@ def create_cnn_model(input_shape=(128, 1024, 1), num_classes=10):
     except Exception as e:
         print(f"Error {e}")
 
+    X_batch, y_batch = train_generator.__getitem__(0) ##making a batch of data from the data generator class
+
     return model  # Return the constructed model
 
 
-X_batch, y_batch = train_generator.__getitem__(0) ##making a batch of data from the data generator class
+
 
