@@ -44,6 +44,7 @@ def main():
         filepath=checkpoint_path,
         monitor='val_loss',
         save_best_only=True
+        save_format='h5'
     )
 
     # 5. Train the model
@@ -56,7 +57,7 @@ def main():
 
     # 6. Save the final model
     final_model_path = os.path.join(MODEL_SAVE_DIR, 'music_genre_cnn_final.h5')
-    model.save(final_model_path)
+    model.save(final_model_path, save_format='h5')
     print(f"Final model saved to {final_model_path}")
 
     # 7. Plot training history
