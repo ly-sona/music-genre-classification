@@ -24,38 +24,7 @@ genre_map = {
     'Tollywood': 9
 }
 
-# List of genre directories
-genre_folders = [
-    '~/aims3/Augmented data/Classical',
-    '~/aims3/Augmented data/Electronic',
-    '~/aims3/Augmented data/Folk',
-    '~/aims3/Augmented data/Hip_Hop',
-    '~/aims3/Augmented data/Jazz',
-    '~/aims3/Augmented data/Pop',
-    '~/aims3/Augmented data/Reggae',
-    '~/aims3/Augmented data/Rnb',
-    '~/aims3/Augmented data/Rock',
-    '~/aims3/Augmented data/Tollywood'
-]
-
-# Map files to genre IDs
-def map_genre_files(genre_folders, genre_map):
-    file_mappings = []
-    for directory in genre_folders:
-        genre_name = os.path.basename(directory)
-        genre_id = genre_map.get(genre_name, -1)
-        expanded_directory = os.path.expanduser(directory)
-        for root, _, files in os.walk(expanded_directory):
-            for file in files:
-                if file.endswith('.npy'):
-                    file_path = os.path.join(root, file)
-                    file_mappings.append((genre_id, file_path))
-    return file_mappings
-
-# Generate mappings
-data_index = map_genre_files(genre_folders, genre_map)
-
-# Normalize to dimensions (128, 1024, 1)
+# Normalize spectrogram dimensions to (128, 1024, 1)
 def preprocess_spectrogram(spectrogram):
     target_height = 128
     target_width = 1024
@@ -125,7 +94,7 @@ class DataGenerator(Sequence):
             else:
                 raise ValueError(f"Expected S3 path, got: {file_path}")
 
-            X[i] = self.preprocess_spectrogram(spectrogram)
+            X[i] = preprocess_spectrogram(spectrogram)
             y[i] = genre_index
 
         return X, keras.utils.to_categorical(y, num_classes=self.num_classes)
@@ -149,21 +118,15 @@ class DataGenerator(Sequence):
             logger.error(f"Error loading spectrogram from S3: {key}, error: {e}")
             raise e
 
-
-    def load_spectrogram(self, file_path):
-        return np.load(file_path)
-
 # Function to create data generators
 def create_data_generators(train_csv_file, val_csv_file, img_height=128, img_width=1024, batch_size=32):
-    import pandas as pd
-
-    # Load training data index from CSV
+    # Load training data index from CSV with three columns
     train_data = pd.read_csv(train_csv_file)
-    train_index = list(zip(train_data['genre_label'], train_data['file_path']))
+    train_index = list(zip(train_data['file_path'], train_data['genre_label'], train_data['genre_index']))
 
-    # Load validation data index from CSV
+    # Load validation data index from CSV with three columns
     val_data = pd.read_csv(val_csv_file)
-    val_index = list(zip(val_data['genre_label'], val_data['file_path']))
+    val_index = list(zip(val_data['file_path'], val_data['genre_label'], val_data['genre_index']))
 
     # Initialize train and validation generators
     train_generator = DataGenerator(
