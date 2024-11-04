@@ -4,6 +4,7 @@ import viteLogo from '/vite.svg'
 import './App.css'
 import './components/FileUpload'
 import FileUpload from './components/FileUpload'
+import ResultsDisplay from './components/ResultsDisplay'
 
 function App() {
   const [count, setCount] = useState(0)
