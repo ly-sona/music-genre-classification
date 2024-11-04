@@ -8,26 +8,29 @@ function App() {
 
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+      <div className = "navbar">
+        <ul>
+          <li>Use our App</li>
+          <li>About the model</li>
+          <li>About us</li>
+        </ul>
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
+      <section id="upload" className="upload-section">
+        <h2>Upload Your File</h2>
+        <p>[File upload placeholder]</p>
+      </section>
+
+      <div className="loading-placeholder">
+        <p>[Loading indicator placeholder]</p>
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+
+      <div className="results-placeholder">
+        <p>[Results display placeholder]</p>
+      </div>
+
+      <footer className="landing-footer">
+        <p>© 2024 Your Company. All rights reserved.</p>
+      </footer>
     </>
   )
 }
