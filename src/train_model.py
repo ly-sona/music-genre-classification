@@ -39,13 +39,12 @@ def main():
 
     # 4. Set up callbacks
     early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-    checkpoint_path = os.path.join(MODEL_SAVE_DIR, 'best_model.h5')
+    checkpoint_path = os.path.join(MODEL_SAVE_DIR, 'best_model.keras')  # Changed to .keras
     model_checkpoint = ModelCheckpoint(
-        filepath=checkpoint_path,
-        monitor='val_loss',
-        save_best_only=True,
-        save_format='h5'
-    )
+    filepath=checkpoint_path,
+    monitor='val_loss',
+    save_best_only=True
+)
 
     # 5. Train the model
     history = model.fit(
@@ -56,8 +55,8 @@ def main():
     )
 
     # 6. Save the final model
-    final_model_path = os.path.join(MODEL_SAVE_DIR, 'music_genre_cnn_final.h5')
-    model.save(final_model_path, save_format='h5')
+    final_model_path = os.path.join(MODEL_SAVE_DIR, 'music_genre_cnn_final.keras')
+    model.save(final_model_path)
     print(f"Final model saved to {final_model_path}")
 
     # 7. Plot training history
