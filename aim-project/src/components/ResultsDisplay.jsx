@@ -4,7 +4,12 @@ import React from 'react';
 // Default cover image URL (you can replace this with your own image)
 const DEFAULT_COVER_IMAGE = "https://via.placeholder.com/300?text=No+Cover+Image";
 
-const ResultsDisplay = ({ songName, artist, coverImageUrl, genres }) => {
+const ResultsDisplay = ({
+    songName = "Unknown Song",
+    artist = "Unknown Artist",
+    coverImageUrl = DEFAULT_COVER_IMAGE,
+    genres = []
+}) => {
     return (
         <div style={styles.container}>
             {/* Song Metadata */}
@@ -16,23 +21,25 @@ const ResultsDisplay = ({ songName, artist, coverImageUrl, genres }) => {
             {/* Cover Image */}
             <div style={styles.coverImageContainer}>
                 <img 
-                    src={coverImageUrl || DEFAULT_COVER_IMAGE} 
+                    src={coverImageUrl} 
                     alt={`${songName} cover`} 
                     style={styles.coverImage} 
                 />
             </div>
 
             {/* Genre List */}
-            <div style={styles.genreList}>
-                <h3>Predicted Genres</h3>
-                <ul style={styles.genreItems}>
-                    {genres.map((genre, index) => (
-                        <li key={index} style={styles.genreItem}>
-                            {genre.name} {genre.confidence && `(${genre.confidence}%)`}
-                        </li>
-                    ))}
-                </ul>
-            </div>
+            {genres.length > 0 && (
+                <div style={styles.genreList}>
+                    <h3>Predicted Genres</h3>
+                    <ul style={styles.genreItems}>
+                        {genres.map((genre, index) => (
+                            <li key={index} style={styles.genreItem}>
+                                {genre.name} {genre.confidence ? `(${genre.confidence}%)` : ""}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
         </div>
     );
 };
