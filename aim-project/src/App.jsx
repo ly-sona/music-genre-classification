@@ -1,45 +1,63 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
-import './components/FileUpload'
-import FileUpload from './components/FileUpload'
-import ResultsDisplay from './components/ResultsDisplay'
-import Loading from './components/Loading'
+//App.js
+import { useState } from 'react';
+import './App.css';
+import FileUpload from './components/FileUpload';
+import ResultsDisplay from './components/ResultsDisplay';
+import Loading from './components/Loading';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [displayState, setDisplayState] = useState('upload');
+  const [uploadedFile, setUploadedFile] = useState(null); 
+
+
+  const handleFileUpload = (fileData) => {
+    setUploadedFile(fileData);
+    setDisplayState('loading'); 
+
+    setTimeout(() => {
+      setDisplayState('results'); 
+    }, 2000); 
+  };
 
   return (
     <>
-      <div className = "navbar">
+      <div className="navbar">
+        <div className="navbar-name">
+          <h1>Genre Classification</h1>
+        </div>
         <ul>
           <li>Use our App</li>
           <li>About the model</li>
           <li>About us</li>
         </ul>
       </div>
-      <section id="upload" className="upload-section">
-        <h2>Upload Your File</h2>
-        <p>[File upload placeholder]</p>
-      </section>
-      <FileUpload/>
 
-      <div className="loading-placeholder">
-        <p>[Loading indicator placeholder]</p>
-      </div>
-      <Loading/>
-     
-      <div className="results-placeholder">
-        <p>[Results display placeholder]</p>
-      </div>
-      <ResultsDisplay/>
-      
-      
+      {displayState === 'upload' && (
+        <section id="upload" className="upload-section">
+          <h2>Upload Your File</h2>
+          <FileUpload onFileUpload={handleFileUpload} />
+        </section>
+      )}
 
+      {displayState === 'loading' && (
+        <div className="loading-section">
+          <Loading />
+        </div>
+      )}
 
+      {displayState === 'results' && uploadedFile && (
+        <div className="results-section">
+          <ResultsDisplay 
+            songName={uploadedFile.song_name} 
+            artist={uploadedFile.artist} 
+            coverImageUrl={uploadedFile.cover_image_url} 
+            genres={uploadedFile.genres} 
+            filename={uploadedFile.filename}
+          /> 
+        </div>
+      )}
     </>
-  )
+  );
 }
 
-export default App
+export default App;

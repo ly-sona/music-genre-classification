@@ -1,15 +1,23 @@
-// components/ResultsDisplay.jsx
-import React from 'react';
+//components/ResultsDisplay.jsx
+import React, { useState } from 'react';
 
-// Default cover image URL (you can replace this with your own image)
 const DEFAULT_COVER_IMAGE = "https://via.placeholder.com/300?text=No+Cover+Image";
 
 const ResultsDisplay = ({
     songName = "Unknown Song",
     artist = "Unknown Artist",
     coverImageUrl = DEFAULT_COVER_IMAGE,
-    genres = []
+    genres = [],
+    filename = null 
 }) => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    const handleOpen = () => {
+        setIsOpen(!isOpen);
+    };
+
+    const audioSrc = filename ? `http://localhost:5001/uploads/${filename}` : null;
+
     return (
         <div style={styles.container}>
             {/* Song Metadata */}
@@ -40,20 +48,42 @@ const ResultsDisplay = ({
                     </ul>
                 </div>
             )}
+
+            {/* Open Button */}
+            {filename && (
+                <div style={styles.openButtonContainer}>
+                    <button onClick={handleOpen} style={styles.openButton}>
+                        {isOpen ? 'Close' : 'Open'}
+                    </button>
+                </div>
+            )}
+
+            {/* Audio Player and Download Link */}
+            {isOpen && audioSrc && (
+                <div style={styles.audioSection}>
+                    <audio controls>
+                        <source src={audioSrc} type="audio/mpeg" />
+                        Your browser does not support the audio element.
+                    </audio>
+                    <a href={audioSrc} download style={styles.downloadLink}>
+                        Download File
+                    </a>
+                </div>
+            )}
         </div>
     );
 };
 
-// Inline styles for the component
 const styles = {
     container: {
         maxWidth: '400px',
-        margin: '0 auto',
+        margin: '20px auto',
         padding: '20px',
         border: '1px solid #ddd',
         borderRadius: '8px',
         textAlign: 'center',
         fontFamily: 'Arial, sans-serif',
+        backgroundColor: '#f9f9f9',
     },
     metadata: {
         marginBottom: '20px',
@@ -70,7 +100,7 @@ const styles = {
     },
     coverImageContainer: {
         width: '100%',
-        paddingTop: '100%', // Creates a square aspect ratio
+        paddingTop: '100%', 
         position: 'relative',
         overflow: 'hidden',
         borderRadius: '8px',
@@ -95,6 +125,27 @@ const styles = {
     genreItem: {
         padding: '5px 0',
         fontSize: '16px',
+    },
+    openButtonContainer: {
+        marginTop: '20px',
+    },
+    openButton: {
+        padding: '10px 20px',
+        backgroundColor: '#17a2b8',
+        color: '#fff',
+        border: 'none',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        fontSize: '16px',
+    },
+    audioSection: {
+        marginTop: '20px',
+    },
+    downloadLink: {
+        display: 'block',
+        marginTop: '10px',
+        color: '#007bff',
+        textDecoration: 'none',
     },
 };
 
