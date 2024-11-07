@@ -1,4 +1,4 @@
-//App.js
+// App.js
 import { useState } from 'react';
 import './App.css';
 import FileUpload from './components/FileUpload';
@@ -9,14 +9,17 @@ function App() {
   const [displayState, setDisplayState] = useState('upload');
   const [uploadedFile, setUploadedFile] = useState(null); 
 
-
   const handleFileUpload = (fileData) => {
     setUploadedFile(fileData);
-    setDisplayState('loading'); 
-
+    setDisplayState('uploaded'); // Change to 'uploaded' state
+    
+    // After displaying 'uploaded', transition to 'loading' and 'results'
     setTimeout(() => {
-      setDisplayState('results'); 
-    }, 2000); 
+      setDisplayState('loading'); 
+      setTimeout(() => {
+        setDisplayState('results'); 
+      }, 2000); // Adjust time as needed
+    }, 2000); // Time to display 'Uploaded' status
   };
 
   return (
@@ -37,6 +40,19 @@ function App() {
           <h2>Upload Your File</h2>
           <FileUpload onFileUpload={handleFileUpload} />
         </section>
+      )}
+
+      {displayState === 'uploading' && (
+        <div className="uploading-section">
+          <Loading />
+          <p>Uploading...</p>
+        </div>
+      )}
+
+      {displayState === 'uploaded' && (
+        <div className="uploaded-section">
+          <p>Uploaded Successfully!</p>
+        </div>
       )}
 
       {displayState === 'loading' && (

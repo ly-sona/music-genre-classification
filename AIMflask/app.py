@@ -13,7 +13,7 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    CORS(app, resources={r"/*": {"origins": "http://localhost:5715"}}) #make SURE to change this to the port React is running on
+    CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}}) #make SURE to change this to the port React is running on
 
     os.makedirs(app.config['UPLOADED_AUDIO_DEST'], exist_ok=True)
 

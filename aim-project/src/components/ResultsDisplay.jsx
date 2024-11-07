@@ -1,4 +1,4 @@
-//components/ResultsDisplay.jsx
+// components/ResultsDisplay.jsx
 import React, { useState } from 'react';
 
 const DEFAULT_COVER_IMAGE = "https://via.placeholder.com/300?text=No+Cover+Image";
@@ -16,7 +16,7 @@ const ResultsDisplay = ({
         setIsOpen(!isOpen);
     };
 
-    const audioSrc = filename ? `http://localhost:5001/uploads/${filename}` : null;
+    const audioSrc = filename ? `http://127.0.0.1:5001/uploads/${filename}` : null;
 
     return (
         <div style={styles.container}>
@@ -100,7 +100,7 @@ const styles = {
     },
     coverImageContainer: {
         width: '100%',
-        paddingTop: '100%', 
+        paddingTop: '100%', // Creates a square aspect ratio
         position: 'relative',
         overflow: 'hidden',
         borderRadius: '8px',

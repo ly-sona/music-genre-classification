@@ -1,4 +1,4 @@
-//components/FileUpload.jsx
+// components/FileUpload.jsx
 import React, { useState } from 'react';
 import axios from 'axios';
 
@@ -8,6 +8,7 @@ const FileUpload = ({ onFileUpload }) => {
     const [artist, setArtist] = useState("");
     const [url, setUrl] = useState("");
     const [error, setError] = useState("");
+    const [uploadStatus, setUploadStatus] = useState("idle"); // idle, uploading, uploaded
 
     const handleFileChange = (event) => {
         setFile(event.target.files[0]);
@@ -35,18 +36,23 @@ const FileUpload = ({ onFileUpload }) => {
         formData.append("artist", artist);
 
         try {
-            const response = await axios.post("http://localhost:5001/upload", formData, {
+            setUploadStatus("uploading");
+            const response = await axios.post("http://127.0.0.1:5001/upload", formData, {
                 headers: {
                     "Content-Type": "multipart/form-data"
+                },
+                onUploadProgress: (progressEvent) => {
+                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    // Optionally, you can manage upload progress here
                 }
             });
             console.log("Response:", response.data);
-            alert("File uploaded successfully!");
-
-            onFileUpload(response.data); 
+            setUploadStatus("uploaded");
+            onFileUpload(response.data);
         } catch (error) {
             console.error("Upload failed:", error);
             setError("Upload failed. Please try again.");
+            setUploadStatus("idle");
         }
     };
 
@@ -92,8 +98,8 @@ const FileUpload = ({ onFileUpload }) => {
                 />
             </div>
             {error && <p style={styles.errorText}>{error}</p>}
-            <button type="submit" style={styles.submitButton}>
-                Submit
+            <button type="submit" style={styles.submitButton} disabled={uploadStatus === "uploading"}>
+                {uploadStatus === "uploading" ? "Uploading..." : uploadStatus === "uploaded" ? "Uploaded" : "Submit"}
             </button>
         </form>
     );
