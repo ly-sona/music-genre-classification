@@ -19,29 +19,29 @@ const ResultsDisplay = ({
     const audioSrc = filename ? `http://127.0.0.1:5001/uploads/${filename}` : null;
 
     return (
-        <div style={styles.container}>
+        <div className="max-w-md mx-auto p-6 bg-slate-800 text-white rounded-lg shadow-md">
             {/* Song Metadata */}
-            <div style={styles.metadata}>
-                <h2 style={styles.songName}>{songName}</h2>
-                <p style={styles.artist}>by {artist}</p>
+            <div className="text-center mb-4">
+                <h2 className="text-2xl font-bold">{songName}</h2>
+                <p className="text-purple-400">by {artist}</p>
             </div>
 
             {/* Cover Image */}
-            <div style={styles.coverImageContainer}>
+            <div className="w-full h-64 bg-gray-700 rounded-lg overflow-hidden mb-4">
                 <img 
                     src={coverImageUrl} 
                     alt={`${songName} cover`} 
-                    style={styles.coverImage} 
+                    className="w-full h-full object-cover"
                 />
             </div>
 
             {/* Genre List */}
             {genres.length > 0 && (
-                <div style={styles.genreList}>
-                    <h3>Predicted Genres</h3>
-                    <ul style={styles.genreItems}>
+                <div className="mb-4">
+                    <h3 className="text-xl font-semibold mb-2 text-purple-400">Predicted Genres</h3>
+                    <ul className="list-disc list-inside text-purple-200">
                         {genres.map((genre, index) => (
-                            <li key={index} style={styles.genreItem}>
+                            <li key={index}>
                                 {genre.name} {genre.confidence ? `(${genre.confidence}%)` : ""}
                             </li>
                         ))}
@@ -51,8 +51,11 @@ const ResultsDisplay = ({
 
             {/* Open Button */}
             {filename && (
-                <div style={styles.openButtonContainer}>
-                    <button onClick={handleOpen} style={styles.openButton}>
+                <div className="text-center mb-4">
+                    <button 
+                        onClick={handleOpen} 
+                        className="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-700 text-white rounded-xl shadow-lg hover:from-purple-600 hover:to-purple-800 transition duration-300 text-sm md:text-base"
+                    >
                         {isOpen ? 'Close' : 'Open'}
                     </button>
                 </div>
@@ -60,93 +63,22 @@ const ResultsDisplay = ({
 
             {/* Audio Player and Download Link */}
             {isOpen && audioSrc && (
-                <div style={styles.audioSection}>
-                    <audio controls>
+                <div className="flex flex-col items-center space-y-2">
+                    <audio controls className="w-full">
                         <source src={audioSrc} type="audio/mpeg" />
                         Your browser does not support the audio element.
                     </audio>
-                    <a href={audioSrc} download style={styles.downloadLink}>
+                    <a 
+                        href={audioSrc} 
+                        download 
+                        className="text-purple-400 hover:underline"
+                    >
                         Download File
                     </a>
                 </div>
             )}
         </div>
     );
-};
-
-const styles = {
-    container: {
-        maxWidth: '400px',
-        margin: '20px auto',
-        padding: '20px',
-        border: '1px solid #ddd',
-        borderRadius: '8px',
-        textAlign: 'center',
-        fontFamily: 'Arial, sans-serif',
-        backgroundColor: '#f9f9f9',
-    },
-    metadata: {
-        marginBottom: '20px',
-    },
-    songName: {
-        fontSize: '24px',
-        fontWeight: 'bold',
-        margin: '0',
-    },
-    artist: {
-        fontSize: '18px',
-        color: '#555',
-        margin: '5px 0',
-    },
-    coverImageContainer: {
-        width: '100%',
-        paddingTop: '100%', // Creates a square aspect ratio
-        position: 'relative',
-        overflow: 'hidden',
-        borderRadius: '8px',
-        marginBottom: '20px',
-    },
-    coverImage: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        objectFit: 'cover',
-    },
-    genreList: {
-        textAlign: 'left',
-    },
-    genreItems: {
-        listStyleType: 'none',
-        padding: 0,
-        margin: 0,
-    },
-    genreItem: {
-        padding: '5px 0',
-        fontSize: '16px',
-    },
-    openButtonContainer: {
-        marginTop: '20px',
-    },
-    openButton: {
-        padding: '10px 20px',
-        backgroundColor: '#17a2b8',
-        color: '#fff',
-        border: 'none',
-        borderRadius: '4px',
-        cursor: 'pointer',
-        fontSize: '16px',
-    },
-    audioSection: {
-        marginTop: '20px',
-    },
-    downloadLink: {
-        display: 'block',
-        marginTop: '10px',
-        color: '#007bff',
-        textDecoration: 'none',
-    },
-};
+}
 
 export default ResultsDisplay;

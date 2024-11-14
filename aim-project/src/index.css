@@ -1,3 +1,39 @@
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .animate-gradient {
+    animation: gradientBackground 6s ease-in-out infinite;
+  }
+}
+
+/* src/index.css */
+
+.tilt:hover {
+  transform: perspective(1000px) rotateX(10deg) rotateY(-10deg);
+  transition: transform 0.3s ease;
+}
+
+.tilt:active {
+  transform: perspective(1000px) rotateX(0deg) rotateY(0deg);
+  transition: transform 0.1s ease;
+}
+
+
+@keyframes gradientBackground {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 0%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
