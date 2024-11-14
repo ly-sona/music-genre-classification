@@ -243,40 +243,20 @@ function UseApp() {
         </section>
       )}
 
+      {/* Results State */}
       {displayState === 'results' && uploadedFile && (
-        <section className="relative flex flex-col md:flex-row items-center justify-center p-8 md:p-14 backdrop-blur-lg bg-slate-950 rounded-lg md:rounded-2xl shadow-2xl max-w-5xl w-full z-20 border border-white/10 overflow-hidden">
+        <section className="relative flex flex-col items-center justify-center p-8 md:p-10 bg-white rounded-lg md:rounded-2xl shadow-none max-w-5xl w-full z-20 border border-gray-300 overflow-hidden">
           
-          {/* Background Radial Gradient */}
-          <div className="absolute top-0 left-0 z-[-2] h-full w-full bg-white 
-            bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%, 
-            rgba(120,119,198,0.3), rgba(255,255,255,0))]">
-          </div>
-
           {/* Content Wrapper */}
-          <div className="flex flex-col md:flex-row items-center w-full z-10 space-y-6 md:space-y-0 md:space-x-6">
-            
-            {/* Left Side - Start Over Button */}
-            <div className="w-full md:w-1/2 flex justify-center">
-              <button
-                onClick={handleReset} // **Updated to use handleReset**
-                className="w-full md:w-auto px-6 py-4 bg-gradient-to-r from-purple-500 
-                  to-purple-700 text-white rounded-xl shadow-lg hover:from-purple-600 
-                  hover:to-purple-800 transition duration-300 text-lg md:text-xl font-semibold"
-              >
-                Start Over
-              </button>
-            </div>
-
-            {/* Right Side - Results Display */}
-            <div className="w-full md:w-1/2">
-              <ResultsDisplay 
-                songName={uploadedFile.song_name} 
-                artist={uploadedFile.artist} 
-                coverImageUrl={uploadedFile.cover_image_url} 
-                genres={uploadedFile.genres} 
-                filename={uploadedFile.filename}
-              />
-            </div>
+          <div className="w-full">
+            <ResultsDisplay 
+              songName={uploadedFile.song_name} 
+              artist={uploadedFile.artist} 
+              coverImageUrl={uploadedFile.cover_image_url} 
+              genres={uploadedFile.genres} 
+              filename={uploadedFile.filename}
+              handleReset={handleReset} // **Pass handleReset as a prop**
+            />
           </div>
         </section>
       )}
