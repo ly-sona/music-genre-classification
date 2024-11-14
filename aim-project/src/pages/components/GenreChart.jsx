@@ -2,10 +2,8 @@
 import React from 'react';
 import Chart from "react-apexcharts";
 import PropTypes from 'prop-types';
-import { Square3Stack3DIcon } from "@heroicons/react/24/outline";
 
 const GenreChart = ({ genres }) => {
-  // Extract genre names and confidence scores
   const genreNames = genres.map(genre => genre.name);
   const confidenceData = genres.map(genre => genre.confidence);
 

@@ -64,7 +64,7 @@ function UseApp() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
+    <div className="flex items-center justify-center relative">
       {displayState === 'initial' && (
         <section className="relative flex flex-col md:flex-row items-center justify-center p-8 md:p-14 backdrop-blur-lg bg-slate-950 rounded-lg md:rounded-2xl shadow-2xl max-w-4xl w-full z-20 border border-white/10 overflow-hidden">
           
