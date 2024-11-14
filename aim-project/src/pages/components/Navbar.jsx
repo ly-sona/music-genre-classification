@@ -9,7 +9,7 @@ function Navbar() {
       <div className="absolute top-0 left-0 h-full w-full bg-neutral-950 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))] z-10"></div>
 
       {/* Navbar Content */}
-      <NavLink to="/" end className="text-white text-4xl font-bold tracking-wide relative z-20">
+      <NavLink to="/" end className="text-white text-4xl font-bold tracking-wide relative z-20 hover:none">
         Classif<span className="text-primary">.ai</span>
       </NavLink>
       <div className="flex space-x-4 relative z-20">

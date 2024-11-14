@@ -13,7 +13,8 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    CORS(app, resources={r"/*": {"origins": "http://localhost:5175"}}) #make SURE to change this to the port React is running on
+    # Update CORS to allow DELETE requests
+    CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}}, methods=["GET", "POST", "DELETE"])
 
     os.makedirs(app.config['UPLOADED_AUDIO_DEST'], exist_ok=True)
 
@@ -72,5 +73,24 @@ def create_app():
     @app.route('/uploads/<filename>')
     def uploaded_file(filename):
         return send_from_directory(app.config['UPLOADED_AUDIO_DEST'], filename)
+    
+    # **New Delete Endpoint**
+    @app.route('/delete/<filename>', methods=['DELETE'])
+    def delete_file(filename):
+        print(f"Received request to delete file: {filename}")
+        safe_filename = secure_filename(filename)
+        file_path = os.path.join(app.config['UPLOADED_AUDIO_DEST'], safe_filename)
+
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+                print(f"File {safe_filename} deleted successfully.")
+                return jsonify({'message': f'File {safe_filename} deleted successfully.'}), 200
+            except Exception as e:
+                print(f"Error deleting file {safe_filename}: {str(e)}")
+                return jsonify({'error': f'Error deleting file: {str(e)}'}), 500
+        else:
+            print(f"File {safe_filename} does not exist.")
+            return jsonify({'error': 'File does not exist.'}), 404
 
     return app

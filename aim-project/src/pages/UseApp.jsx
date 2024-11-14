@@ -1,6 +1,7 @@
 // src/pages/UseApp.jsx
 
 import { useState } from 'react';
+import axios from 'axios'; // Import axios
 import FileUpload from './components/FileUpload';
 import SpotifyLinkProcessing from './components/SpotifyLinkProcessing';
 import YoutubeLinkProcessing from './components/YoutubeLinkProcessing';
@@ -10,6 +11,16 @@ import Loading from './components/Loading';
 function UseApp() {
   const [displayState, setDisplayState] = useState('initial');
   const [uploadedFile, setUploadedFile] = useState(null);
+
+  // **New Function to Delete Uploaded File**
+  const deleteUploadedFile = async (filename) => {
+    try {
+      const response = await axios.delete(`http://127.0.0.1:5001/delete/${filename}`);
+      console.log(response.data.message);
+    } catch (error) {
+      console.error("Failed to delete the file:", error.response?.data?.error || error.message);
+    }
+  };
 
   const handleFileUpload = (fileData) => {
     if (fileData === null) {
@@ -41,6 +52,15 @@ function UseApp() {
     } else if (choice === 'youtube') {
       setDisplayState('youtubeLink');
     }
+  };
+
+  // **New Function to Handle Reset (Start Over)**
+  const handleReset = async () => {
+    if (uploadedFile && uploadedFile.filename) {
+      await deleteUploadedFile(uploadedFile.filename);
+      setUploadedFile(null);
+    }
+    setDisplayState('initial');
   };
 
   return (
@@ -103,7 +123,7 @@ function UseApp() {
                 {/* File Upload Component */}
                 <FileUpload 
                     onFileUpload={handleFileUpload} 
-                    onBack={() => setDisplayState('initial')} 
+                    onBack={handleReset} // **Updated to use handleReset**
                 />
             </div>
         </section>
@@ -127,7 +147,7 @@ function UseApp() {
             </button>
           </div>
           <button
-            onClick={() => setDisplayState('initial')}
+            onClick={handleReset} // **Updated to use handleReset**
             className="mt-6 w-full px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition"
           >
             Back
@@ -154,7 +174,7 @@ function UseApp() {
             <div className="w-full md:w-1/2 flex justify-center">
               <button
                 type="button"
-                onClick={() => setDisplayState('linkUpload')}
+                onClick={handleReset} // **Updated to use handleReset**
                 className="w-full md:w-auto px-6 py-4 bg-red-500 text-white rounded-xl shadow-lg hover:bg-red-600 
                   transition duration-300 text-lg md:text-xl font-semibold"
               >
@@ -238,7 +258,7 @@ function UseApp() {
             {/* Left Side - Start Over Button */}
             <div className="w-full md:w-1/2 flex justify-center">
               <button
-                onClick={() => setDisplayState('initial')}
+                onClick={handleReset} // **Updated to use handleReset**
                 className="w-full md:w-auto px-6 py-4 bg-gradient-to-r from-purple-500 
                   to-purple-700 text-white rounded-xl shadow-lg hover:from-purple-600 
                   hover:to-purple-800 transition duration-300 text-lg md:text-xl font-semibold"
