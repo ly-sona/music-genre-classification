@@ -19,7 +19,7 @@ const ResultsDisplay = ({
   const [isOpen, setIsOpen] = useState(false);
 
   const handleOpen = () => {
-    setIsOpen(!isOpen);
+    setIsOpen(prevState => !prevState);
   };
 
   const audioSrc = filename ? `http://127.0.0.1:5001/uploads/${filename}` : null;
@@ -53,15 +53,22 @@ const ResultsDisplay = ({
       y += 60;
 
       // Add Genre List
-      doc.setFontSize(16);
-      doc.setTextColor(0);
-      doc.text('Predicted Genres:', margin, y);
-      y += 10;
-      genres.forEach((genre, index) => {
+      if (genres.length > 0) {
+        doc.setFontSize(16);
+        doc.setTextColor(0);
+        doc.text('Predicted Genres:', margin, y);
+        y += 10;
+        genres.forEach((genre, index) => {
+          doc.setFontSize(12);
+          doc.text(`${index + 1}. ${genre.name} (${genre.confidence}%)`, margin + 5, y);
+          y += 7;
+        });
+      } else {
         doc.setFontSize(12);
-        doc.text(`${index + 1}. ${genre.name} (${genre.confidence}%)`, margin + 5, y);
-        y += 7;
-      });
+        doc.setTextColor(255, 0, 0);
+        doc.text("No genre data available.", margin, y);
+        y += 10;
+      }
 
       // Add Genre Chart using html2canvas
       const chartElement = document.getElementById('genre-chart');
@@ -112,7 +119,7 @@ const ResultsDisplay = ({
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full p-4">
       {/* Container with responsive grid layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
@@ -125,6 +132,7 @@ const ResultsDisplay = ({
               src={coverImageUrl} 
               alt={`${songName} cover`} 
               className="w-full h-auto object-cover"
+              onError={(e) => { e.target.src = DEFAULT_COVER_IMAGE; }}
             />
           </div>
         </div>
@@ -140,12 +148,14 @@ const ResultsDisplay = ({
             </div>
           )}
 
-          <div className="flex flex-row space-x-4">
+          <div className="flex flex-row flex-wrap justify-center space-x-4">
             {/* Open Song Button */}
             {filename && (
               <button 
                 onClick={handleOpen} 
-                className="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-700 text-white rounded-lg hover:from-purple-600 hover:to-purple-800 transition duration-300"
+                className="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-700 text-white rounded-lg hover:from-purple-600 hover:to-purple-800 transition duration-300 m-1"
+                aria-pressed={isOpen}
+                aria-label={isOpen ? 'Close Song' : 'Open Song'}
               >
                 {isOpen ? 'Close Song' : 'Open Song'}
               </button>
@@ -154,7 +164,8 @@ const ResultsDisplay = ({
             {/* Download PDF Button */}
             <button
               onClick={generatePDF}
-              className="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-700 text-white rounded-lg hover:from-purple-600 hover:to-purple-800 transition duration-300"
+              className="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-700 text-white rounded-lg hover:from-purple-600 hover:to-purple-800 transition duration-300 m-1"
+              aria-label="Download Results as PDF"
             >
               Download Results
             </button>
@@ -164,7 +175,8 @@ const ResultsDisplay = ({
                 onClick={handleReset}
                 className="py-2 bg-gradient-to-r from-purple-500 
                   to-purple-700 text-white rounded-lg hover:from-purple-600 
-                  hover:to-purple-800 transition duration-300 text-md md:text-lg font-semibold"
+                  hover:to-purple-800 transition duration-300 text-md md:text-lg font-semibold m-1"
+                aria-label="Start Over"
               >
                 Start Over
               </button>
@@ -180,7 +192,8 @@ const ResultsDisplay = ({
               <a 
                 href={audioSrc} 
                 download 
-                className="text-purple-500 hover:underline"
+                className="text-purple-500 hover:underline mt-2"
+                aria-label="Download Audio File"
               >
                 Download File
               </a>

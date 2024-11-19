@@ -1,9 +1,8 @@
 // src/pages/UseApp.jsx
 
 import { useState } from 'react';
-import axios from 'axios'; // Import axios
+import axios from 'axios';
 import FileUpload from './components/FileUpload';
-import SpotifyLinkProcessing from './components/SpotifyLinkProcessing';
 import YoutubeLinkProcessing from './components/YoutubeLinkProcessing';
 import ResultsDisplay from './components/ResultsDisplay';
 import Loading from './components/Loading';
@@ -11,24 +10,36 @@ import Loading from './components/Loading';
 function UseApp() {
   const [displayState, setDisplayState] = useState('initial');
   const [uploadedFile, setUploadedFile] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  // **New Function to Delete Uploaded File**
+  // Function to Delete Uploaded File
   const deleteUploadedFile = async (filename) => {
     try {
       const response = await axios.delete(`http://127.0.0.1:5001/delete/${filename}`);
       console.log(response.data.message);
     } catch (error) {
       console.error("Failed to delete the file:", error.response?.data?.error || error.message);
+      // Optionally, set an error message to inform the user
+      setErrorMessage(error.response?.data?.error || "Failed to delete the uploaded file.");
     }
   };
 
+  // Function to Handle File or Link Upload
   const handleFileUpload = (fileData) => {
     if (fileData === null) {
+      // Indicates that an upload has started
       setDisplayState('uploading');
+      setErrorMessage('');
+    } else if (fileData.error) {
+      // Handle error from upload
+      setErrorMessage(fileData.error);
+      setDisplayState('initial');
     } else {
+      // Successful upload
       setUploadedFile(fileData);
       setDisplayState('uploaded');
 
+      // Simulate processing delay
       setTimeout(() => {
         setDisplayState('loading');
         setTimeout(() => {
@@ -38,6 +49,7 @@ function UseApp() {
     }
   };
 
+  // Function to Handle Initial Choice Between File or Link Upload
   const handleInitialChoice = (choice) => {
     if (choice === 'file') {
       setDisplayState('fileUpload');
@@ -46,6 +58,7 @@ function UseApp() {
     }
   };
 
+  // Function to Handle Link Type Choice (Spotify or YouTube)
   const handleLinkChoice = (choice) => {
     if (choice === 'spotify') {
       setDisplayState('spotifyLink');
@@ -54,17 +67,18 @@ function UseApp() {
     }
   };
 
-  // **New Function to Handle Reset (Start Over)**
+  // Function to Handle Reset (Start Over)
   const handleReset = async () => {
     if (uploadedFile && uploadedFile.filename) {
       await deleteUploadedFile(uploadedFile.filename);
       setUploadedFile(null);
     }
     setDisplayState('initial');
+    setErrorMessage('');
   };
 
   return (
-    <div className="flex items-center justify-center relative">
+    <div className="flex items-center justify-center relative min-h-screen">
       {displayState === 'initial' && (
         <section className="relative flex flex-col md:flex-row items-center justify-center p-8 md:p-14 backdrop-blur-lg bg-slate-950 rounded-lg md:rounded-2xl shadow-2xl max-w-4xl w-full z-20 border border-white/10 overflow-hidden">
           
@@ -93,12 +107,14 @@ function UseApp() {
                 <button
                   onClick={() => handleInitialChoice('file')}
                   className="w-full px-6 py-4 bg-gradient-to-r from-purple-500 to-purple-700 text-white rounded-xl shadow-lg hover:from-purple-600 hover:to-purple-800 transition duration-300"
+                  aria-label="Upload Music File"
                 >
                   Upload Music File
                 </button>
                 <button
                   onClick={() => handleInitialChoice('link')}
                   className="w-full px-6 py-4 bg-gradient-to-r from-pink-500 to-pink-700 text-white rounded-xl shadow-lg hover:from-pink-600 hover:to-pink-800 transition duration-300"
+                  aria-label="Provide Music Link"
                 >
                   Provide Music Link
                 </button>
@@ -125,33 +141,43 @@ function UseApp() {
                     onFileUpload={handleFileUpload} 
                     onBack={handleReset} // **Updated to use handleReset**
                 />
+
+                {/* Display Error Message if Any */}
+                {errorMessage && <p className="text-red-500 text-center w-full text-sm md:text-base">{errorMessage}</p>}
             </div>
         </section>
       )}
 
       {displayState === 'linkUpload' && (
-        <section className="w-full max-w-md p-8 bg-white/80 backdrop-blur-md rounded-lg shadow-xl">
-          <h2 className="text-2xl font-semibold mb-6">Choose Link Type</h2>
-          <div className="flex flex-col space-y-4">
+        <section className="relative flex flex-col items-center justify-center p-8 md:p-14 backdrop-blur-lg bg-slate-950 rounded-lg md:rounded-2xl shadow-2xl max-w-3xl w-full z-20 border border-white/10 overflow-hidden">
+          <div className="absolute top-0 left-0 z-[-2] h-full w-full bg-white bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]"></div>
+          
+          <div className="flex flex-col items-center w-full z-10 space-y-6">  
+            <h2 className="text-2xl md:text-3xl font-semibold text-purple-600 drop-shadow-md text-center">Choose Link Type</h2>
+            <div className="flex flex-col space-y-4">
+              <button
+                onClick={() => handleLinkChoice('spotify')}
+                className="w-full px-6 py-4 bg-gradient-to-r from-purple-500 to-purple-700 text-white rounded-xl shadow-lg hover:from-purple-600 hover:to-purple-800 transition duration-300"
+                aria-label="Provide Spotify Link"
+              >
+                Spotify Link
+              </button>
+              <button
+                onClick={() => handleLinkChoice('youtube')}
+                className="w-full px-6 py-4 bg-gradient-to-r from-pink-500 to-pink-700 text-white rounded-xl shadow-lg hover:from-pink-600 hover:to-pink-800 transition duration-300"
+                aria-label="Provide YouTube Link"
+              >
+                YouTube Link
+              </button>
+            </div>
             <button
-              onClick={() => handleLinkChoice('spotify')}
-              className="px-6 py-3 bg-primary text-white rounded hover:bg-primary-dark transition"
+              onClick={handleReset} // **Updated to use handleReset**
+              className="w-full sm:w-1/2 px-5 py-2.5 bg-gradient-to-r from-red-500 to-red-700 text-white rounded-xl shadow-lg hover:from-red-600 hover:to-red-800 transition duration-300 text-sm md:text-base"
+              aria-label="Go Back to Initial Screen"
             >
-              Spotify Link
-            </button>
-            <button
-              onClick={() => handleLinkChoice('youtube')}
-              className="px-6 py-3 bg-secondary text-white rounded hover:bg-secondary-dark transition"
-            >
-              YouTube Link
+              Back
             </button>
           </div>
-          <button
-            onClick={handleReset} // **Updated to use handleReset**
-            className="mt-6 w-full px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition"
-          >
-            Back
-          </button>
         </section>
       )}
 
@@ -174,9 +200,10 @@ function UseApp() {
             <div className="w-full md:w-1/2 flex justify-center">
               <button
                 type="button"
-                onClick={handleReset} // **Updated to use handleReset**
+                onClick={handleReset}
                 className="w-full md:w-auto px-6 py-4 bg-red-500 text-white rounded-xl shadow-lg hover:bg-red-600 
                   transition duration-300 text-lg md:text-xl font-semibold"
+                aria-label="Go Back to Link Selection"
               >
                 Back
               </button>
@@ -190,10 +217,13 @@ function UseApp() {
               </h2>
               
               {displayState === 'spotifyLink' ? (
-                  <SpotifyLinkProcessing onFileUpload={handleFileUpload} />
+                  <YoutubeLinkProcessing onFileUpload={handleFileUpload} />
               ) : (
                   <YoutubeLinkProcessing onFileUpload={handleFileUpload} />
               )}
+
+              {/* Display Error Message if Any */}
+              {errorMessage && <p className="text-red-500 text-center w-full text-sm md:text-base">{errorMessage}</p>}
             </div>
           </div>
         </section>
@@ -209,6 +239,7 @@ function UseApp() {
           <div className="flex flex-col items-center w-full z-10 space-y-6">    
               {/* Loading Indicator */}
               <Loading />
+              <p className="text-lg text-purple-600">Processing your upload...</p>
           </div>
         </section>
       )}
@@ -222,9 +253,16 @@ function UseApp() {
           {/* Content Wrapper */}
           <div className="flex flex-col items-center w-full z-10 space-y-6">    
               {/* Success Message */}
-              <p className="text-xl md:text-2xl font-semibold text-purple-600 drop-shadow-md text-center">
+              <p className="text-xl md:text-2xl font-semibold text-green-500 drop-shadow-md text-center">
                   Uploaded Successfully!
               </p>
+              <button
+                onClick={() => setDisplayState('loading')}
+                className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-700 text-white rounded-lg hover:from-green-600 hover:to-green-800 transition duration-300"
+                aria-label="Proceed to Processing"
+              >
+                Proceed
+              </button>
           </div>
         </section>
       )}
@@ -239,6 +277,7 @@ function UseApp() {
           <div className="flex flex-col items-center w-full z-10 space-y-6">    
               {/* Loading Indicator */}
               <Loading />
+              <p className="text-lg text-purple-600">Analyzing your music...</p>
           </div>
         </section>
       )}
@@ -258,6 +297,9 @@ function UseApp() {
               handleReset={handleReset} // **Pass handleReset as a prop**
             />
           </div>
+
+          {/* Display Error Message if Any */}
+          {errorMessage && <p className="text-red-500 text-center w-full text-sm md:text-base mt-4">{errorMessage}</p>}
         </section>
       )}
     </div>
