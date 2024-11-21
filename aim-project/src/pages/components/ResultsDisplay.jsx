@@ -1,4 +1,4 @@
-// src/components/ResultsDisplay.jsx
+// src/pages/components/ResultsDisplay.jsx
 
 import React, { useState } from 'react';
 import GenreChart from './GenreChart';

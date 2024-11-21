@@ -1,3 +1,5 @@
+# app.py
+
 import logging
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -7,7 +9,13 @@ import yt_dlp
 from moviepy.editor import VideoFileClip
 import uuid
 from datetime import datetime
-import certifi  # Ensure certifi is installed
+import tensorflow as tf
+from tensorflow.keras.models import load_model
+import numpy as np
+import librosa
+import io
+import boto3
+from botocore.exceptions import ClientError
 
 # Configure logging
 logging.basicConfig(
@@ -18,22 +26,73 @@ logging.basicConfig(
     ]
 )
 
+# Genre mapping
+genre_map = {
+    'Classical': 0,
+    'Electronic': 1,
+    'Folk': 2,
+    'Hip_Hop': 3,
+    'Jazz': 4,
+    'Pop': 5,
+    'Reggae': 6,
+    'Rnb': 7,
+    'Rock': 8,
+    'Tollywood': 9
+}
+index_to_genre = {v: k for k, v in genre_map.items()}
+
 class Config:
     UPLOADED_AUDIO_ALLOW = {'mp3', 'wav', 'ogg'}
     UPLOADED_AUDIO_DEST = 'uploads'
+    MODELS_DIR = 'models'  # Directory to store models
+    MODEL_S3_BUCKET = 'your-s3-bucket-name'  # Replace with your S3 bucket name
+    MODEL_S3_KEY = 'path/to/music_genre_cnn_final.keras'  # Replace with your S3 object key
+    MODEL_LOCAL_PATH = os.path.join('models', 'music_genre_cnn_final.keras')
     MAX_CONTENT_LENGTH = 200 * 1024 * 1024  # Increased to 200 MB
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # Update CORS to allow DELETE requests
+    # Initialize CORS
     CORS(app, resources={r"/*": {"origins": "*"}}, methods=["GET", "POST", "DELETE"])
 
-    # Ensure the upload directory exists with absolute path
+    # Ensure the upload and models directories exist
     upload_dir = os.path.abspath(app.config['UPLOADED_AUDIO_DEST'])
+    models_dir = os.path.abspath(app.config['MODELS_DIR'])
     os.makedirs(upload_dir, exist_ok=True)
+    os.makedirs(models_dir, exist_ok=True)
     logging.debug(f"Upload directory is set to: {upload_dir}")
+    logging.debug(f"Models directory is set to: {models_dir}")
+
+    # Initialize S3 client
+    s3_client = boto3.client('s3')
+
+    # Download the model from S3 if it doesn't exist locally
+    if not os.path.exists(app.config['MODEL_LOCAL_PATH']):
+        logging.info(f"Model not found locally. Downloading from S3: {app.config['MODEL_S3_KEY']}")
+        try:
+            s3_client.download_file(
+                Bucket=app.config['MODEL_S3_BUCKET'],
+                Key=app.config['MODEL_S3_KEY'],
+                Filename=app.config['MODEL_LOCAL_PATH']
+            )
+            logging.info(f"Model downloaded successfully to {app.config['MODEL_LOCAL_PATH']}")
+        except ClientError as e:
+            logging.exception(f"Failed to download model from S3: {e}")
+            # Depending on your application's needs, you might want to exit or handle this differently
+            model = None
+    else:
+        logging.info(f"Model already exists at {app.config['MODEL_LOCAL_PATH']}")
+
+    # Load the trained model
+    MODEL_PATH = app.config['MODEL_LOCAL_PATH']
+    try:
+        model = load_model(MODEL_PATH)
+        logging.info(f"Model loaded successfully from {MODEL_PATH}")
+    except Exception as e:
+        logging.exception(f"Failed to load model: {e}")
+        model = None
 
     @app.route('/')
     def home():
@@ -43,13 +102,18 @@ def create_app():
     def upload_file():
         logging.debug("Received upload request")
 
+        # Access the global model variable
+        global model
+        if model is None:
+            return jsonify({'error': 'Model not loaded.'}), 500
+
         # Initialize variables
         file = request.files.get('file')
         url = None
         song_name = None
         artist = None
 
-        # Check if the request is JSON
+        # Handle JSON or form data
         if request.is_json:
             data = request.get_json()
             url = data.get('url')
@@ -71,20 +135,26 @@ def create_app():
                 filepath = os.path.join(upload_dir, filename)
                 file.save(filepath)
                 logging.debug(f"File saved to {filepath}")
-                
-                cover_image_url = "https://via.placeholder.com/300?text=Cover+Image"
-                genres = [
-                    {"name": "Pop", "confidence": 85},
-                    {"name": "Rock", "confidence": 75},
-                ]
+
+                # Preprocess and predict
+                try:
+                    spectrogram = preprocess_audio(filepath)
+                    predictions = model.predict(np.expand_dims(spectrogram, axis=0))
+                    genres = format_predictions(predictions[0])
+                except Exception as e:
+                    logging.exception(f"Error during prediction: {e}")
+                    return jsonify({'error': f'Error during prediction: {str(e)}'}), 500
 
                 # Ensure song_name and artist are provided
                 if not song_name or not artist:
                     logging.error("Song name or artist missing")
                     return jsonify({'error': 'Song name and artist are required for file uploads'}), 400
 
+                # Optionally, extract or set a cover image
+                cover_image_url = "https://via.placeholder.com/300?text=Cover+Image"
+
                 return jsonify({
-                    'message': 'File uploaded successfully',
+                    'message': 'File uploaded and processed successfully',
                     'filename': filename,
                     'song_name': song_name,
                     'artist': artist,
@@ -102,71 +172,52 @@ def create_app():
                     logging.error("Song name or artist missing")
                     return jsonify({'error': 'Song name and artist are required for YouTube URL processing'}), 400
 
-                # Generate a unique identifier for the filename to prevent overwrites
+                # Generate unique filenames
                 unique_id = uuid.uuid4().hex
                 timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
                 safe_song_name = secure_filename(song_name)
                 safe_artist = secure_filename(artist)
-                video_filename = f"{safe_song_name}-{safe_artist}_{timestamp}_{unique_id}.mp4"
                 audio_filename = f"{safe_song_name}-{safe_artist}_{timestamp}_{unique_id}.mp3"
-                video_filepath = os.path.join(upload_dir, video_filename)
                 audio_filepath = os.path.join(upload_dir, audio_filename)
 
-                # Use absolute paths
-                video_filepath = os.path.abspath(video_filepath)
-                audio_filepath = os.path.abspath(audio_filepath)
-
-                logging.debug(f"Video filepath: {video_filepath}")
-                logging.debug(f"Audio filepath: {audio_filepath}")
-
-                # yt-dlp options
+                # Use yt-dlp to download and extract audio
                 ydl_opts = {
-                    'format': 'bestvideo+bestaudio/best',
-                    'outtmpl': video_filepath,
-                    'merge_output_format': 'mp4',  # Ensures the final file is mp4
+                    'format': 'bestaudio/best',
+                    'outtmpl': audio_filepath,
+                    'postprocessors': [{
+                        'key': 'FFmpegExtractAudio',
+                        'preferredcodec': 'mp3',
+                        'preferredquality': '192',
+                    }],
                     'quiet': True,
                     'no_warnings': True,
                     'noplaylist': True,
                 }
 
-                logging.debug(f"Downloading video to {video_filepath}")
+                logging.debug(f"Downloading audio from URL to {audio_filepath}")
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([url])
-                logging.debug(f"Video downloaded to {video_filepath}")
+                logging.debug(f"Audio downloaded to {audio_filepath}")
 
                 # Check if the file exists
-                if not os.path.exists(video_filepath):
-                    logging.error(f"Downloaded video file does not exist at path: {video_filepath}")
-                    return jsonify({'error': 'Failed to download video file.'}), 500
+                if not os.path.exists(audio_filepath):
+                    logging.error(f"Downloaded audio file does not exist at path: {audio_filepath}")
+                    return jsonify({'error': 'Failed to download audio file.'}), 500
 
-                # Extract audio using MoviePy
-                logging.debug("Extracting audio from video")
-                video = VideoFileClip(video_filepath)
-                audio = video.audio
-                if audio is None:
-                    logging.error("No audio stream found in the video.")
-                    video.close()
-                    os.remove(video_filepath)
-                    return jsonify({'error': 'No audio stream found in the video.'}), 400
+                # Preprocess and predict
+                try:
+                    spectrogram = preprocess_audio(audio_filepath)
+                    predictions = model.predict(np.expand_dims(spectrogram, axis=0))
+                    genres = format_predictions(predictions[0])
+                except Exception as e:
+                    logging.exception(f"Error during prediction: {e}")
+                    return jsonify({'error': f'Error during prediction: {str(e)}'}), 500
 
-                audio.write_audiofile(audio_filepath)
-                logging.debug(f"Audio extracted and saved to {audio_filepath}")
-
-                # Close the video file to release resources
-                video.close()
-
-                # Delete the downloaded video file
-                os.remove(video_filepath)
-                logging.debug(f"Deleted video file {video_filepath}")
-
-                cover_image_url = "https://via.placeholder.com/300?text=Cover+Image"  # Placeholder
-                genres = [
-                    {"name": "Pop", "confidence": 85},
-                    {"name": "Rock", "confidence": 75},
-                ]
+                # Optionally, extract or set a cover image
+                cover_image_url = "https://via.placeholder.com/300?text=Cover+Image"
 
                 return jsonify({
-                    'message': 'YouTube URL processed successfully',
+                    'message': 'YouTube URL processed and audio analyzed successfully',
                     'filename': audio_filename,
                     'song_name': song_name,
                     'artist': artist,
@@ -176,7 +227,7 @@ def create_app():
 
             except yt_dlp.utils.DownloadError as e:
                 logging.exception(f"yt-dlp DownloadError: {str(e)}")
-                return jsonify({'error': f'Failed to download video: {str(e)}'}), 400
+                return jsonify({'error': f'Failed to download audio: {str(e)}'}), 400
             except Exception as e:
                 logging.exception(f"Error processing YouTube URL: {str(e)}")
                 return jsonify({'error': f'Failed to process YouTube URL: {str(e)}'}), 500
@@ -184,12 +235,69 @@ def create_app():
             logging.error("No file or URL part in the request")
             return jsonify({'error': 'No file or URL part in the request'}), 400
 
+    def preprocess_audio(file_path):
+        """
+        Load an audio file and preprocess it into a spectrogram suitable for the model.
+        """
+        # Load audio using librosa
+        y, sr = librosa.load(file_path, sr=None)
+        # Generate mel spectrogram
+        spectrogram = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128, fmax=8000)
+        spectrogram_db = librosa.power_to_db(spectrogram, ref=np.max)
+        # Resize or pad spectrogram to (128, 1024)
+        target_height = 128
+        target_width = 1024
+        current_height, current_width = spectrogram_db.shape
+
+        # Resize or pad height
+        if current_height < target_height:
+            padding_height = target_height - current_height
+            top_padding = padding_height // 2
+            bottom_padding = padding_height - top_padding
+            padded_spectrogram = np.pad(spectrogram_db, ((top_padding, bottom_padding), (0, 0)), 'constant')
+        elif current_height > target_height:
+            padded_spectrogram = spectrogram_db[:target_height, :]
+        else:
+            padded_spectrogram = spectrogram_db
+
+        # Resize or pad width
+        current_height, current_width = padded_spectrogram.shape
+        if current_width < target_width:
+            padding_width = target_width - current_width
+            left_padding = padding_width // 2
+            right_padding = padding_width - left_padding
+            padded_spectrogram = np.pad(padded_spectrogram, ((0, 0), (left_padding, right_padding)), 'constant')
+        elif current_width > target_width:
+            padded_spectrogram = padded_spectrogram[:, :target_width]
+
+        # Normalize spectrogram
+        min_val = np.min(padded_spectrogram)
+        max_val = np.max(padded_spectrogram)
+        normalized_spectrogram = (padded_spectrogram - min_val) / (max_val - min_val)
+
+        # Add channel dimension
+        normalized_spectrogram = np.expand_dims(normalized_spectrogram, axis=-1)
+
+        return normalized_spectrogram
+
+    def format_predictions(predictions):
+        """
+        Convert model predictions into a list of genres with confidence scores.
+        """
+        # Assuming predictions are probabilities for each class
+        top_indices = predictions.argsort()[-3:][::-1]  # Top 3 predictions
+        genres = []
+        for idx in top_indices:
+            genre_name = index_to_genre.get(idx, "Unknown")
+            confidence = float(predictions[idx] * 100)  # Convert to percentage
+            genres.append({"name": genre_name, "confidence": round(confidence, 2)})
+        return genres
+
     @app.route('/uploads/<filename>')
     def uploaded_file(filename):
         logging.debug(f"Serving uploaded file: {filename}")
         return send_from_directory(app.config['UPLOADED_AUDIO_DEST'], filename)
-    
-    # **New Delete Endpoint**
+
     @app.route('/delete/<filename>', methods=['DELETE'])
     def delete_file(filename):
         logging.debug(f"Received request to delete file: {filename}")
