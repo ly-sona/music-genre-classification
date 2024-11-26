@@ -54,6 +54,7 @@ def preprocess_spectrogram(spectrogram, input_channels=3):
 
 class DataGenerator(Sequence):
     def __init__(self, data_index, s3_client, batch_size, input_shape=(128, 1024, 3), num_classes=10, shuffle=True, cache_dir='/content/drive/MyDrive/ML_Project/spectrogram_cache', augment=False):
+        super().__init__(**kwargs)
         self.data_index = data_index
         self.s3_client = s3_client
         self.batch_size = batch_size
