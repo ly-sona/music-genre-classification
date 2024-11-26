@@ -4,9 +4,10 @@ import os
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, TensorBoard
 from data_generator import create_data_generators
-from model import create_transfer_model
+from model import create_transfer_model, create_cnn_model
 import matplotlib.pyplot as plt
 import boto3
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 import logging
 import pandas as pd
 import numpy as np
@@ -17,18 +18,67 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def plot_training_history(history, save_dir):
-    # (Plotting code remains the same)
-    # ...
+    """
+    Plots and saves the training and validation accuracy and loss.
+
+    Parameters:
+        history (tensorflow.keras.callbacks.History): Training history object.
+        save_dir (str): Directory to save the plots.
+    """
+    # Plot accuracy
+    plt.figure(figsize=(8, 6))
+    plt.plot(history.history['accuracy'], label='Training Accuracy')
+    plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+    plt.title('Accuracy over Epochs')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.legend()
+    accuracy_plot_path = os.path.join(save_dir, 'accuracy_over_epochs.png')
+    plt.savefig(accuracy_plot_path)
+    plt.close()
+    logger.info(f"Accuracy plot saved to {accuracy_plot_path}")
+
+    # Plot loss
+    plt.figure(figsize=(8, 6))
+    plt.plot(history.history['loss'], label='Training Loss')
+    plt.plot(history.history['val_loss'], label='Validation Loss')
+    plt.title('Loss over Epochs')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    loss_plot_path = os.path.join(save_dir, 'loss_over_epochs.png')
+    plt.savefig(loss_plot_path)
+    plt.close()
+    logger.info(f"Loss plot saved to {loss_plot_path}")
+
+    # Optionally, display plots in Colab
+    from IPython.display import Image, display
+    display(Image(filename=accuracy_plot_path))
+    display(Image(filename=loss_plot_path))
 
 def upload_to_s3(s3_client, local_file_path, bucket_name, s3_file_path):
-    # (Upload function remains the same)
-    # ...
+    """
+    Uploads a file to AWS S3.
+
+    Parameters:
+        s3_client (boto3.client): The S3 client.
+        local_file_path (str): Path to the local file.
+        bucket_name (str): Name of the S3 bucket.
+        s3_file_path (str): S3 object name (including prefix if any).
+    """
+    try:
+        s3_client.upload_file(local_file_path, bucket_name, s3_file_path)
+        logger.info(f"Successfully uploaded {local_file_path} to s3://{bucket_name}/{s3_file_path}")
+    except FileNotFoundError:
+        logger.error(f"The file {local_file_path} was not found.")
+    except NoCredentialsError:
+        logger.error("Credentials not available for AWS S3.")
+    except PartialCredentialsError:
+        logger.error("Incomplete AWS credentials provided.")
+    except Exception as e:
+        logger.error(f"An error occurred while uploading {local_file_path} to S3: {e}")
 
 def main():
-    # Mount Google Drive
-    from google.colab import drive
-    drive.mount('/content/drive')
-
     # Define the root directory
     DRIVE_ROOT = '/content/drive/MyDrive/ML_Project'
     os.makedirs(DRIVE_ROOT, exist_ok=True)
