@@ -1,47 +1,119 @@
+# create_data_index.py
+
 import boto3
 import csv
+import os
+import logging
+from google.colab import drive
 
-# Initialize a session with your AWS credentials
-session = boto3.Session()
-s3 = session.resource('s3')
+# Initialize logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Specify your bucket and prefix
-bucket_name = 'aims3'  # Replace with your actual bucket name
-augmented_data_prefix = 'Augmented data/'  # Main path in the bucket
+def list_files_in_s3(bucket, prefix):
+    """
+    List all .npy files in the specified S3 bucket and prefix.
 
-# Function to list all files from S3, including those in subfolders
-def list_files_in_s3(prefix):
-    bucket = s3.Bucket(bucket_name)
-    return [obj.key for obj in bucket.objects.filter(Prefix=prefix) if not obj.key.endswith('/')]
+    Parameters:
+        bucket (str): Name of the S3 bucket.
+        prefix (str): Prefix path in the S3 bucket.
 
-# Collect all file paths from S3
-file_paths = list_files_in_s3(augmented_data_prefix)
+    Returns:
+        list: List of file keys ending with .npy
+    """
+    s3_bucket = bucket
+    s3_prefix = prefix
+    files = []
+    try:
+        bucket_resource = s3.Bucket(s3_bucket)
+        for obj in bucket_resource.objects.filter(Prefix=s3_prefix):
+            if obj.key.endswith('.npy'):
+                files.append(obj.key)
+        logger.info(f"Found {len(files)} .npy files in s3://{s3_bucket}/{s3_prefix}")
+    except Exception as e:
+        logger.error(f"Error listing files in S3: {e}")
+    return files
 
-# Extract genres (labels) from file paths (e.g., folder names under 'Augmented data/')
 def extract_genre(file_path):
-    parts = file_path.split('/')  # Split path by '/'
-    return parts[1] if len(parts) > 1 else 'unknown'  # Genre is the first subfolder
+    """
+    Extract genre from the S3 file path.
 
-# Collect all unique genres and assign integer indices
-unique_genres = sorted(set(extract_genre(file_path) for file_path in file_paths))
-genre_to_index = {genre: idx for idx, genre in enumerate(unique_genres)}
+    Assumes the genre is the third element when splitting by '/'.
 
-# Print genre_to_index to verify
-print("Genre to Index Mapping:", genre_to_index)
+    Parameters:
+        file_path (str): Full S3 file path.
 
-# Map each file path to its genre index and label with S3 paths
-data = []
-for file_path in file_paths:
-    genre = extract_genre(file_path)
-    genre_index = genre_to_index.get(genre, -1)
-    s3_full_path = f"s3://{bucket_name}/{file_path}"
-    data.append((s3_full_path, genre, genre_index))
+    Returns:
+        str: Extracted genre or 'unknown' if not found.
+    """
+    parts = file_path.split('/')
+    if len(parts) > 2:
+        return parts[2]
+    else:
+        return 'unknown'
 
-# Save encoded data to a CSV file with S3 paths
-csv_file = 'augmented_data_index.csv'
-with open(csv_file, mode='w', newline='') as f:
-    writer = csv.writer(f)
-    writer.writerow(['file_path', 'genre_label', 'genre_index'])
-    writer.writerows(data)
+def main():
+    # Mount Google Drive
+    drive.mount('/content/drive')
+    DRIVE_ROOT = '/content/drive/MyDrive/ML_Project'  # Change as needed
+    os.makedirs(DRIVE_ROOT, exist_ok=True)
 
-print(f'Data index saved to {csv_file}')
+    # Fetch AWS credentials from environment variables
+    AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+    AWS_REGION = 'us-east-2'  # Replace with your actual AWS region
+
+    if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY:
+        logger.error("AWS credentials are not set. Please set them as environment variables.")
+        exit(1)
+
+    # Initialize S3 resource
+    try:
+        session = boto3.Session(
+            aws_access_key_id=AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+            region_name=AWS_REGION
+        )
+        s3 = session.resource('s3')
+        logger.info("Successfully initialized boto3 session.")
+    except Exception as e:
+        logger.error(f"Failed to create boto3 session: {e}")
+        exit(1)
+
+    # Specify your bucket and prefix
+    bucket_name = 'aims3'  # Replace with your actual bucket name
+    augmented_data_prefix = 'Augmented data/'
+
+    # Function to list all files in S3 under a prefix
+    file_paths = list_files_in_s3(bucket_name, augmented_data_prefix)
+
+    if not file_paths:
+        logger.error("No .npy files found. Exiting.")
+        exit(1)
+
+    # Map genres to indices
+    unique_genres = sorted(set(extract_genre(fp) for fp in file_paths))
+    genre_to_index = {genre: idx for idx, genre in enumerate(unique_genres)}
+    logger.info(f"Genre to Index Mapping: {genre_to_index}")
+
+    # Prepare data
+    data = []
+    for file_path in file_paths:
+        genre = extract_genre(file_path)
+        genre_index = genre_to_index.get(genre, -1)
+        s3_full_path = f"s3://{bucket_name}/{file_path}"
+        data.append((s3_full_path, genre, genre_index))
+
+    # Save to CSV
+    csv_file = os.path.join(DRIVE_ROOT, 'augmented_data_index.csv')
+    try:
+        with open(csv_file, mode='w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['file_path', 'genre_label', 'genre_index'])
+            writer.writerows(data)
+        logger.info(f'Data index saved to {csv_file}')
+    except Exception as e:
+        logger.error(f"Failed to write CSV file: {e}")
+
+if __name__ == "__main__":
+    main()
