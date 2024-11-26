@@ -9,11 +9,12 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def list_files_in_s3(bucket, prefix):
+def list_files_in_s3(s3, bucket, prefix):
     """
     List all .npy files in the specified S3 bucket and prefix.
 
     Parameters:
+        s3 (boto3.resource): Boto3 S3 resource.
         bucket (str): Name of the S3 bucket.
         prefix (str): Prefix path in the S3 bucket.
 
@@ -52,7 +53,9 @@ def extract_genre(file_path):
         return 'unknown'
 
 def main():
-    # Mount Google Drive
+    # Ensure Google Drive is mounted in the Colab notebook before running this script
+
+    # Define the root directory (Assuming scripts are being run from a specific directory)
     DRIVE_ROOT = '/content/drive/MyDrive/ML_Project'  # Change as needed
     os.makedirs(DRIVE_ROOT, exist_ok=True)
 
@@ -83,7 +86,7 @@ def main():
     augmented_data_prefix = 'Augmented data/'
 
     # Function to list all files in S3 under a prefix
-    file_paths = list_files_in_s3(bucket_name, augmented_data_prefix)
+    file_paths = list_files_in_s3(s3, bucket_name, augmented_data_prefix)
 
     if not file_paths:
         logger.error("No .npy files found. Exiting.")
