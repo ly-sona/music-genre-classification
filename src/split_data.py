@@ -34,17 +34,18 @@ def main():
     logger.info("Genre distribution in the dataset:")
     logger.info(genre_counts)
 
-    # Check if each genre has at least 250 samples
-    min_samples = 250
+    # Optional: Set a minimum sample threshold (e.g., 50)
+    # This allows inclusion of genres with fewer samples while mitigating extreme imbalance
+    min_samples = 50
     insufficient_genres = genre_counts[genre_counts < min_samples]
     if not insufficient_genres.empty:
-        logger.warning("The following genres have fewer than 250 samples:")
+        logger.warning(f"The following genres have fewer than {min_samples} samples:")
         logger.warning(insufficient_genres)
-        # Optionally, remove these genres or handle accordingly
-        data = data[~data['genre_label'].isin(insufficient_genres.index)]
-        logger.info("Removed genres with insufficient samples.")
-        logger.info(f"New genre distribution:")
-        logger.info(data['genre_label'].value_counts())
+        # Decide whether to remove these genres or keep them
+        # Here, we choose to keep them but log a warning
+        # You can also implement oversampling or data augmentation for these genres
+    else:
+        logger.info("All genres have sufficient samples.")
 
     # Perform a stratified split
     train_data, val_data = train_test_split(
