@@ -11,17 +11,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def list_files_in_s3(s3, bucket, prefix):
-    """
-    List all .npy files in the specified S3 bucket and prefix.
-
-    Parameters:
-        s3 (boto3.resource): Boto3 S3 resource.
-        bucket (str): Name of the S3 bucket.
-        prefix (str): Prefix path in the S3 bucket.
-
-    Returns:
-        list: List of file keys ending with .npy
-    """
     s3_bucket = bucket
     s3_prefix = prefix
     files = []
@@ -36,32 +25,21 @@ def list_files_in_s3(s3, bucket, prefix):
     return files
 
 def extract_genre(file_path):
-    """
-    Extract genre from the S3 file path.
-
-    Assumes the genre is the second element when splitting by '/'.
-
-    Parameters:
-        file_path (str): Full S3 file path.
-
-    Returns:
-        str: Extracted genre or 'Unknown' if not found.
-    """
     parts = file_path.split('/')
     if len(parts) > 1:
-        return parts[1].lower().capitalize()  # Standardize genre labels
+        return parts[1].lower().capitalize()
     else:
         return 'Unknown'
 
 def main():
     # Define the root directory
-    DRIVE_ROOT = '/content/drive/MyDrive/ML_Project'  # Change as needed
+    DRIVE_ROOT = '/content/drive/MyDrive/ML_Project'
     os.makedirs(DRIVE_ROOT, exist_ok=True)
 
     # Fetch AWS credentials from environment variables
     AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
     AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
-    AWS_REGION = 'us-east-2'  # Replace with your actual AWS region
+    AWS_REGION = 'us-east-2'  # Update if different
 
     if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY:
         logger.error("AWS credentials are not set. Please set them as environment variables.")
@@ -84,7 +62,7 @@ def main():
     bucket_name = 'aims3'  # Replace with your actual bucket name
     augmented_data_prefix = 'Augmented data/'
 
-    # Function to list all files in S3 under a prefix
+    # List all files in S3 under the prefix
     file_paths = list_files_in_s3(s3, bucket_name, augmented_data_prefix)
 
     if not file_paths:
@@ -114,7 +92,7 @@ def main():
         if genre_index == -1:
             logger.warning(f"Genre '{genre}' not found in mapping. Assigning to 'Unknown'.")
             genre = 'Unknown'
-            genre_index = genre_to_index.get(genre, 0)  # Default to first index if 'Unknown' exists
+            genre_index = genre_to_index.get(genre, 0)
         s3_full_path = f"s3://{bucket_name}/{file_path}"
         data.append((s3_full_path, genre, genre_index))
 

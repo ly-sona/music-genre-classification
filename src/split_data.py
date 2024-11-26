@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 def main():
     # Define the root directory
-    DRIVE_ROOT = '/content/drive/MyDrive/ML_Project'  # Change as needed
+    DRIVE_ROOT = '/content/drive/MyDrive/ML_Project'
     os.makedirs(DRIVE_ROOT, exist_ok=True)
 
     # Load the data index from the CSV file
@@ -34,33 +34,23 @@ def main():
     logger.info("Genre distribution in the dataset:")
     logger.info(genre_counts)
 
-    # Optional: Set a minimum sample threshold (e.g., 50)
-    # This allows inclusion of genres with fewer samples while mitigating extreme imbalance
-    min_samples = 50
+    # Retain all genres
+    min_samples = 1  # Set to 1 to include all genres
     insufficient_genres = genre_counts[genre_counts < min_samples]
     if not insufficient_genres.empty:
         logger.warning(f"The following genres have fewer than {min_samples} samples:")
         logger.warning(insufficient_genres)
-        # Decide whether to remove these genres or keep them
-        # Here, we choose to keep them but log a warning
-        # You can also implement oversampling or data augmentation for these genres
     else:
         logger.info("All genres have sufficient samples.")
 
     # Perform a stratified split
     train_data, val_data = train_test_split(
         data,
-        test_size=0.2,  # 20% for validation
-        stratify=data['genre_label'],  # Stratify by genre labels
-        random_state=42  # For reproducibility
+        test_size=0.2,
+        stratify=data['genre_label'],
+        random_state=42
     )
     logger.info("Performed stratified train-validation split.")
-
-    # Verify the split
-    logger.info("Training set genre distribution:")
-    logger.info(train_data['genre_label'].value_counts())
-    logger.info("Validation set genre distribution:")
-    logger.info(val_data['genre_label'].value_counts())
 
     # Save the training and validation sets to CSV files
     train_csv_file = os.path.join(DRIVE_ROOT, 'train_data_index.csv')
