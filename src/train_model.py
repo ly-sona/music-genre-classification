@@ -2,18 +2,29 @@
 
 import os
 import tensorflow as tf
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, TensorBoard
 from data_generator import create_data_generators
-from model import create_cnn_model
+from model import create_transfer_model, create_cnn_model
 import matplotlib.pyplot as plt
 import boto3
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 import logging
+import pandas as pd
+import numpy as np
+from sklearn.utils import class_weight
+
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def plot_training_history(history, save_dir):
+    """
+    Plots and saves the training and validation accuracy and loss.
+
+    Parameters:
+        history (tensorflow.keras.callbacks.History): Training history object.
+        save_dir (str): Directory to save the plots.
+    """
     # Plot accuracy
     plt.figure(figsize=(8, 6))
     plt.plot(history.history['accuracy'], label='Training Accuracy')
@@ -68,7 +79,11 @@ def upload_to_s3(s3_client, local_file_path, bucket_name, s3_file_path):
         logger.error(f"An error occurred while uploading {local_file_path} to S3: {e}")
 
 def main():
-    # Mount Google Drive
+    # Mount Google Drive (Uncomment if running in Colab)
+    # from google.colab import drive
+    # drive.mount('/content/drive')
+
+    # Define the root directory
     DRIVE_ROOT = '/content/drive/MyDrive/ML_Project'  # Change as needed
     os.makedirs(DRIVE_ROOT, exist_ok=True)
 
@@ -100,14 +115,14 @@ def main():
     IMG_HEIGHT = 128
     IMG_WIDTH = 1024
     NUM_CLASSES = 10  # Update based on your dataset
-    EPOCHS = 30  # Increased for better training
+    EPOCHS = 100  # Increased for better training
     MODEL_SAVE_DIR = os.path.join(DRIVE_ROOT, 'models')
     os.makedirs(MODEL_SAVE_DIR, exist_ok=True)
 
     TRAIN_CSV = os.path.join(DRIVE_ROOT, 'train_data_index.csv')
     VAL_CSV = os.path.join(DRIVE_ROOT, 'val_data_index.csv')
 
-    # Create data generators
+    # Create data generators with augmentation for training
     train_generator, val_generator = create_data_generators(
         train_csv_file=TRAIN_CSV,
         val_csv_file=VAL_CSV,
@@ -115,29 +130,65 @@ def main():
         img_height=IMG_HEIGHT,
         img_width=IMG_WIDTH,
         batch_size=BATCH_SIZE,
-        num_classes=NUM_CLASSES  # Pass NUM_CLASSES to the data generators
+        num_classes=NUM_CLASSES,
+        cache_dir=os.path.join(DRIVE_ROOT, 'spectrogram_cache'),
+        augment=True  # Enable augmentation
     )
 
-    # Create and compile the model
-    model = create_cnn_model(input_shape=(IMG_HEIGHT, IMG_WIDTH, 1), num_classes=NUM_CLASSES)
+    # Calculate class weights
+    try:
+        train_df = pd.read_csv(TRAIN_CSV)
+        class_weights_vals = class_weight.compute_class_weight(
+            class_weight='balanced',
+            classes=np.unique(train_df['genre_index']),
+            y=train_df['genre_index']
+        )
+        class_weights_dict = {i: weight for i, weight in enumerate(class_weights_vals)}
+        logger.info(f"Computed class weights: {class_weights_dict}")
+    except Exception as e:
+        logger.error(f"Failed to compute class weights: {e}")
+        class_weights_dict = None  # Proceed without class weights
+
+    # Create and compile the model (Using Transfer Learning with ResNet50)
+    model = create_transfer_model(input_shape=(IMG_HEIGHT, IMG_WIDTH, 3), num_classes=NUM_CLASSES)
+    # If using custom CNN without transfer learning, uncomment the following line and comment the above
+    # model = create_cnn_model(input_shape=(IMG_HEIGHT, IMG_WIDTH, 1), num_classes=NUM_CLASSES)
+    
+    # Compile the model with a suitable optimizer and learning rate
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(),
+        optimizer=Adam(learning_rate=1e-4),
         loss='categorical_crossentropy',
         metrics=['accuracy']
     )
     logger.info("Model created and compiled.")
 
     # Set up callbacks
-    early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+    early_stop = EarlyStopping(
+        monitor='val_accuracy',
+        patience=10,
+        restore_best_weights=True,
+        verbose=1
+    )
     checkpoint_path = os.path.join(MODEL_SAVE_DIR, 'best_model.keras')
     model_checkpoint = ModelCheckpoint(
         filepath=checkpoint_path,
+        monitor='val_accuracy',
+        save_best_only=True,
+        verbose=1
+    )
+    lr_reduction = ReduceLROnPlateau(
         monitor='val_loss',
-        save_best_only=True
+        factor=0.2,
+        patience=5,
+        verbose=1,
+        min_lr=1e-6
+    )
+    tensorboard_callback = TensorBoard(
+        log_dir=os.path.join(DRIVE_ROOT, 'logs'),
+        histogram_freq=1
     )
 
-    # Optionally, add TensorBoard callback
-    # tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(DRIVE_ROOT, 'logs'))
+    callbacks = [early_stop, model_checkpoint, lr_reduction, tensorboard_callback]
 
     # Train the model
     logger.info("Starting model training...")
@@ -145,7 +196,8 @@ def main():
         train_generator,
         epochs=EPOCHS,
         validation_data=val_generator,
-        callbacks=[early_stop, model_checkpoint],
+        callbacks=callbacks,
+        class_weight=class_weights_dict,
         verbose=1  # Show progress
     )
     logger.info("Model training completed.")

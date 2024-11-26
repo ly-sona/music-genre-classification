@@ -6,6 +6,7 @@ from tensorflow import keras
 import pandas as pd
 import logging
 from io import BytesIO
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 Sequence = keras.utils.Sequence  # Ensure keras.utils.Sequence import works
 
@@ -13,15 +14,16 @@ Sequence = keras.utils.Sequence  # Ensure keras.utils.Sequence import works
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def preprocess_spectrogram(spectrogram):
+def preprocess_spectrogram(spectrogram, input_channels=1):
     """
-    Preprocesses the spectrogram by resizing/padding and normalizing.
+    Preprocesses the spectrogram by resizing/padding, normalizing, and replicating channels if needed.
 
     Parameters:
         spectrogram (np.ndarray): Raw spectrogram data.
+        input_channels (int): Number of channels required by the model.
 
     Returns:
-        np.ndarray: Preprocessed spectrogram with shape (128, 1024, 1).
+        np.ndarray: Preprocessed spectrogram with shape (128, 1024, channels).
     """
     target_height = 128
     target_width = 1024
@@ -51,13 +53,17 @@ def preprocess_spectrogram(spectrogram):
     max_val = np.max(spectrogram)
     normalized_spectrogram = (spectrogram - min_val) / (max_val - min_val + 1e-6)  # Avoid division by zero
 
-    # Add channel dimension
-    normalized_spectrogram = np.expand_dims(normalized_spectrogram, axis=-1)
+    # Replicate channels if needed (e.g., for ResNet50 which expects 3 channels)
+    if input_channels > 1:
+        normalized_spectrogram = np.repeat(normalized_spectrogram, input_channels, axis=-1)
+    else:
+        # Add channel dimension
+        normalized_spectrogram = np.expand_dims(normalized_spectrogram, axis=-1)
 
     return normalized_spectrogram
 
 class DataGenerator(Sequence):
-    def __init__(self, data_index, s3_client, batch_size, input_shape=(128, 1024, 1), num_classes=10, shuffle=True, cache_dir='/content/drive/MyDrive/ML_Project/spectrogram_cache'):
+    def __init__(self, data_index, s3_client, batch_size, input_shape=(128, 1024, 1), num_classes=10, shuffle=True, cache_dir='/content/drive/MyDrive/ML_Project/spectrogram_cache', augment=False):
         """
         Initializes the DataGenerator.
 
@@ -69,6 +75,7 @@ class DataGenerator(Sequence):
             num_classes (int): Number of output classes.
             shuffle (bool): Whether to shuffle data after each epoch.
             cache_dir (str): Directory to cache downloaded spectrograms.
+            augment (bool): Whether to apply data augmentation.
         """
         self.data_index = data_index
         self.s3_client = s3_client
@@ -77,9 +84,23 @@ class DataGenerator(Sequence):
         self.num_classes = num_classes
         self.shuffle = shuffle
         self.cache_dir = cache_dir
+        self.augment = augment
         os.makedirs(self.cache_dir, exist_ok=True)
         self.on_epoch_end()
         logger.info(f"DataGenerator initialized with cache directory: {self.cache_dir}")
+
+        if self.augment:
+            self.augmenter = ImageDataGenerator(
+                rotation_range=10,
+                width_shift_range=0.1,
+                height_shift_range=0.1,
+                zoom_range=0.1,
+                horizontal_flip=False,  # Not typically applicable for spectrograms
+                vertical_flip=False
+            )
+            logger.info("Data augmentation enabled.")
+        else:
+            self.augmenter = None
 
     def __len__(self):
         return int(np.ceil(len(self.data_index) / self.batch_size))
@@ -105,7 +126,12 @@ class DataGenerator(Sequence):
 
             try:
                 spectrogram = self.get_spectrogram(bucket_name, key)
-                processed_spectrogram = preprocess_spectrogram(spectrogram)
+                processed_spectrogram = preprocess_spectrogram(spectrogram, input_channels=self.input_shape[-1])
+
+                if self.augmenter:
+                    # Apply random transformations
+                    processed_spectrogram = self.augmenter.random_transform(processed_spectrogram)
+
                 X_list.append(processed_spectrogram)
                 y_list.append(genre_index)
             except Exception as e:
@@ -159,25 +185,25 @@ class DataGenerator(Sequence):
         if os.path.exists(local_file_path):
             # Load spectrogram from local cache
             spectrogram = np.load(local_file_path)
-            logger.info(f"Loaded spectrogram from cache: {local_file_path}")
+            logger.debug(f"Loaded spectrogram from cache: {local_file_path}")
         else:
             # Download spectrogram from S3
             try:
                 obj = self.s3_client.get_object(Bucket=bucket_name, Key=key)
                 spectrogram_bytes = obj['Body'].read()
                 spectrogram = np.load(BytesIO(spectrogram_bytes))
-                logger.info(f"Downloaded spectrogram from S3: s3://{bucket_name}/{key}")
+                logger.debug(f"Downloaded spectrogram from S3: s3://{bucket_name}/{key}")
 
                 # Save spectrogram to local cache
                 np.save(local_file_path, spectrogram)
-                logger.info(f"Saved spectrogram to cache: {local_file_path}")
+                logger.debug(f"Saved spectrogram to cache: {local_file_path}")
             except Exception as e:
                 logger.error(f"Failed to retrieve spectrogram from S3: s3://{bucket_name}/{key}. Error: {e}")
                 raise e
 
         return spectrogram
 
-def create_data_generators(train_csv_file, val_csv_file, s3_client, img_height=128, img_width=1024, batch_size=32, num_classes=10, cache_dir='/content/drive/MyDrive/ML_Project/spectrogram_cache'):
+def create_data_generators(train_csv_file, val_csv_file, s3_client, img_height=128, img_width=1024, batch_size=32, num_classes=10, cache_dir='/content/drive/MyDrive/ML_Project/spectrogram_cache', augment=False):
     """
     Creates training and validation data generators.
 
@@ -190,6 +216,7 @@ def create_data_generators(train_csv_file, val_csv_file, s3_client, img_height=1
         batch_size (int): Batch size.
         num_classes (int): Number of output classes.
         cache_dir (str): Directory to cache downloaded spectrograms.
+        augment (bool): Whether to apply data augmentation.
 
     Returns:
         tuple: (train_generator, val_generator)
@@ -214,24 +241,29 @@ def create_data_generators(train_csv_file, val_csv_file, s3_client, img_height=1
 
     val_index = list(zip(val_data['file_path'], val_data['genre_label'], val_data['genre_index']))
 
+    # Determine input channels based on the model (3 for transfer learning with ResNet50, 1 for custom CNN)
+    input_channels = 3  # Set to 1 if using custom CNN without transfer learning
+
     # Create DataGenerator instances
     train_generator = DataGenerator(
         data_index=train_index,
         s3_client=s3_client,
         batch_size=batch_size,
-        input_shape=(img_height, img_width, 1),
+        input_shape=(img_height, img_width, input_channels),
         num_classes=num_classes,
         shuffle=True,
-        cache_dir=cache_dir
+        cache_dir=cache_dir,
+        augment=augment  # Enable augmentation for training data
     )
     val_generator = DataGenerator(
         data_index=val_index,
         s3_client=s3_client,
         batch_size=batch_size,
-        input_shape=(img_height, img_width, 1),
+        input_shape=(img_height, img_width, input_channels),
         num_classes=num_classes,
         shuffle=False,
-        cache_dir=cache_dir
+        cache_dir=cache_dir,
+        augment=False  # No augmentation for validation data
     )
 
     logger.info("Data generators created successfully.")

@@ -4,6 +4,7 @@ import boto3
 import csv
 import os
 import logging
+import json
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -38,24 +39,22 @@ def extract_genre(file_path):
     """
     Extract genre from the S3 file path.
 
-    Assumes the genre is the third element when splitting by '/'.
+    Assumes the genre is the second element when splitting by '/'.
 
     Parameters:
         file_path (str): Full S3 file path.
 
     Returns:
-        str: Extracted genre or 'unknown' if not found.
+        str: Extracted genre or 'Unknown' if not found.
     """
     parts = file_path.split('/')
     if len(parts) > 1:
-        return parts[1]
+        return parts[1].lower().capitalize()  # Standardize genre labels
     else:
-        return 'unknown'
+        return 'Unknown'
 
 def main():
-    # Ensure Google Drive is mounted in the Colab notebook before running this script
-
-    # Define the root directory (Assuming scripts are being run from a specific directory)
+    # Define the root directory
     DRIVE_ROOT = '/content/drive/MyDrive/ML_Project'  # Change as needed
     os.makedirs(DRIVE_ROOT, exist_ok=True)
 
@@ -97,11 +96,25 @@ def main():
     genre_to_index = {genre: idx for idx, genre in enumerate(unique_genres)}
     logger.info(f"Genre to Index Mapping: {genre_to_index}")
 
+    # Save genre mapping to JSON
+    genre_mapping_json = os.path.join(DRIVE_ROOT, 'genre_mapping.json')
+    try:
+        with open(genre_mapping_json, 'w') as json_file:
+            json.dump(genre_to_index, json_file, indent=4)
+        logger.info(f"Genre to index mapping saved to {genre_mapping_json}")
+    except Exception as e:
+        logger.error(f"Failed to save genre mapping to JSON: {e}")
+        exit(1)
+
     # Prepare data
     data = []
     for file_path in file_paths:
         genre = extract_genre(file_path)
         genre_index = genre_to_index.get(genre, -1)
+        if genre_index == -1:
+            logger.warning(f"Genre '{genre}' not found in mapping. Assigning to 'Unknown'.")
+            genre = 'Unknown'
+            genre_index = genre_to_index.get(genre, 0)  # Default to first index if 'Unknown' exists
         s3_full_path = f"s3://{bucket_name}/{file_path}"
         data.append((s3_full_path, genre, genre_index))
 
