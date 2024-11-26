@@ -4,7 +4,6 @@ import boto3
 import csv
 import os
 import logging
-from google.colab import drive
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -54,7 +53,6 @@ def extract_genre(file_path):
 
 def main():
     # Mount Google Drive
-    drive.mount('/content/drive')
     DRIVE_ROOT = '/content/drive/MyDrive/ML_Project'  # Change as needed
     os.makedirs(DRIVE_ROOT, exist_ok=True)
 
