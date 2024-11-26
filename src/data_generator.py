@@ -1,5 +1,3 @@
-# data_generator.py
-
 import os
 import numpy as np
 from tensorflow import keras
@@ -26,6 +24,14 @@ def preprocess_spectrogram(spectrogram, input_channels=3):
     Returns:
         np.ndarray: Preprocessed spectrogram with shape (128, 1024, channels).
     """
+    # If spectrogram has more than 2 dimensions, squeeze to 2D
+    if spectrogram.ndim > 2:
+        spectrogram = np.squeeze(spectrogram)
+        logger.debug(f"Squeezed spectrogram shape: {spectrogram.shape}")
+
+    if spectrogram.ndim != 2:
+        raise ValueError(f"Spectrogram has unexpected number of dimensions: {spectrogram.ndim}")
+
     target_height = 128
     target_width = 1024
     current_height, current_width = spectrogram.shape
@@ -56,10 +62,12 @@ def preprocess_spectrogram(spectrogram, input_channels=3):
 
     # Replicate channels for ResNet50
     if input_channels > 1:
-        normalized_spectrogram = np.repeat(normalized_spectrogram, input_channels, axis=-1)
+        normalized_spectrogram = np.repeat(normalized_spectrogram[..., np.newaxis], input_channels, axis=-1)
+        logger.debug(f"Replicated spectrogram to {input_channels} channels: {normalized_spectrogram.shape}")
     else:
         # Add channel dimension
         normalized_spectrogram = np.expand_dims(normalized_spectrogram, axis=-1)
+        logger.debug(f"Added single channel to spectrogram: {normalized_spectrogram.shape}")
 
     return normalized_spectrogram
 
@@ -129,11 +137,15 @@ class DataGenerator(Sequence):
 
             try:
                 spectrogram = self.get_spectrogram(bucket_name, key)
+                logger.debug(f"Loaded spectrogram shape before preprocessing for {file_path}: {spectrogram.shape}")
+
                 processed_spectrogram = preprocess_spectrogram(spectrogram, input_channels=self.input_shape[-1])
+                logger.debug(f"Processed spectrogram shape for {file_path}: {processed_spectrogram.shape}")
 
                 if self.augmenter:
                     # Apply random transformations
                     processed_spectrogram = self.augmenter.random_transform(processed_spectrogram)
+                    logger.debug(f"Augmented spectrogram shape for {file_path}: {processed_spectrogram.shape}")
 
                 X_list.append(processed_spectrogram)
                 y_list.append(genre_index)
