@@ -9,8 +9,6 @@ import matplotlib.pyplot as plt
 import boto3
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 import logging
-from google.colab import drive
-
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -71,7 +69,6 @@ def upload_to_s3(s3_client, local_file_path, bucket_name, s3_file_path):
 
 def main():
     # Mount Google Drive
-    drive.mount('/content/drive')
     DRIVE_ROOT = '/content/drive/MyDrive/ML_Project'  # Change as needed
     os.makedirs(DRIVE_ROOT, exist_ok=True)
 

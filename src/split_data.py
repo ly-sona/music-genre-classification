@@ -4,7 +4,6 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 import logging
 import os
-from google.colab import drive
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -12,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 def main():
     # Mount Google Drive
-    drive.mount('/content/drive')
     DRIVE_ROOT = '/content/drive/MyDrive/ML_Project'  # Change as needed
     os.makedirs(DRIVE_ROOT, exist_ok=True)
 
