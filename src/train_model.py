@@ -4,7 +4,7 @@ import os
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, TensorBoard
 from data_generator import create_data_generators
-from model import create_transfer_model, create_cnn_model
+from model import create_transfer_model
 import matplotlib.pyplot as plt
 import boto3
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
