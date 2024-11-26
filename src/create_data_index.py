@@ -47,8 +47,8 @@ def extract_genre(file_path):
         str: Extracted genre or 'unknown' if not found.
     """
     parts = file_path.split('/')
-    if len(parts) > 2:
-        return parts[2]
+    if len(parts) > 1:
+        return parts[1]
     else:
         return 'unknown'
 
