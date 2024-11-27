@@ -110,7 +110,7 @@ def main():
     IMG_HEIGHT = 128
     IMG_WIDTH = 1024
     NUM_CLASSES = 10  # Update based on your dataset
-    EPOCHS = 30  # Reduced number of epochs
+    EPOCHS = 15  # Reduced number of epochs
     MODEL_SAVE_DIR = os.path.join(DRIVE_ROOT, 'models')
     os.makedirs(MODEL_SAVE_DIR, exist_ok=True)
 
