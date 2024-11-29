@@ -110,7 +110,7 @@ def main():
     IMG_HEIGHT = 128
     IMG_WIDTH = 1024
     NUM_CLASSES = 10  # Update based on your dataset
-    EPOCHS = 15  # Reduced number of epochs
+    EPOCHS = 15  # Total number of epochs
     MODEL_SAVE_DIR = os.path.join(DRIVE_ROOT, 'models')
     os.makedirs(MODEL_SAVE_DIR, exist_ok=True)
 
@@ -144,24 +144,29 @@ def main():
         logger.error(f"Failed to compute class weights: {e}")
         class_weights_dict = None
 
-    # Create and compile the model
-    model = create_transfer_model(input_shape=(IMG_HEIGHT, IMG_WIDTH, 3), num_classes=NUM_CLASSES)
-
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
-        loss='categorical_crossentropy',
-        metrics=['accuracy']
-    )
-    logger.info("Model created and compiled.")
+    # Check if a saved model exists
+    checkpoint_path = os.path.join(MODEL_SAVE_DIR, 'best_model.keras')
+    if os.path.exists(checkpoint_path):
+        logger.info(f"Loading existing model from {checkpoint_path}")
+        model = tf.keras.models.load_model(checkpoint_path)
+        # Optionally, you can load optimizer state or other parameters if needed
+    else:
+        logger.info("Creating a new model.")
+        model = create_transfer_model(input_shape=(IMG_HEIGHT, IMG_WIDTH, 3), num_classes=NUM_CLASSES)
+        model.compile(
+            optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
+            loss='categorical_crossentropy',
+            metrics=['accuracy']
+        )
+        logger.info("Model created and compiled.")
 
     # Set up callbacks
     early_stop = EarlyStopping(
         monitor='val_accuracy',
-        patience=5,  # Reduced patience for quicker stopping
+        patience=5,  # Adjust if necessary
         restore_best_weights=True,
         verbose=1
     )
-    checkpoint_path = os.path.join(MODEL_SAVE_DIR, 'best_model.keras')
     model_checkpoint = ModelCheckpoint(
         filepath=checkpoint_path,
         monitor='val_accuracy',
@@ -181,6 +186,9 @@ def main():
     )
 
     callbacks = [early_stop, model_checkpoint, lr_reduction, tensorboard_callback]
+
+    # Determine the number of epochs already trained
+    # Since we don't track it, we'll proceed without setting initial_epoch
 
     # Train the model
     logger.info("Starting model training...")
@@ -213,6 +221,5 @@ def main():
     # Upload 'music_genre_cnn_final.keras' to S3
     final_model_s3_path = os.path.join(MODEL_S3_PREFIX, 'music_genre_cnn_final.keras')
     upload_to_s3(s3_client, final_model_path, MODEL_S3_BUCKET, final_model_s3_path)
-
 if __name__ == "__main__":
     main()
