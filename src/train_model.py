@@ -3,6 +3,7 @@
 import os
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, TensorBoard
+from tensorflow.keras import mixed_precision
 from data_generator import create_data_generators
 from model import create_transfer_model
 import matplotlib.pyplot as plt
@@ -12,6 +13,10 @@ import logging
 import pandas as pd
 import numpy as np
 from sklearn.utils import class_weight
+import json
+
+# Enable XLA compilation for TensorFlow
+os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=2'
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -78,6 +83,28 @@ def upload_to_s3(s3_client, local_file_path, bucket_name, s3_file_path):
     except Exception as e:
         logger.error(f"An error occurred while uploading {local_file_path} to S3: {e}")
 
+def save_current_epoch(epoch, save_dir):
+    epoch_path = os.path.join(save_dir, 'current_epoch.json')
+    with open(epoch_path, 'w') as f:
+        json.dump({'current_epoch': epoch}, f)
+    logger.info(f"Saved current epoch: {epoch}")
+
+def load_current_epoch(save_dir):
+    epoch_path = os.path.join(save_dir, 'current_epoch.json')
+    if os.path.exists(epoch_path):
+        with open(epoch_path, 'r') as f:
+            data = json.load(f)
+            return data.get('current_epoch', 0)
+    return 0
+
+class EpochSaver(tf.keras.callbacks.Callback):
+    def __init__(self, save_dir):
+        super(EpochSaver, self).__init__()
+        self.save_dir = save_dir
+
+    def on_epoch_end(self, epoch, logs=None):
+        save_current_epoch(epoch + 1, self.save_dir)
+
 def main():
     # Define the root directory
     DRIVE_ROOT = '/content/drive/MyDrive/ML_Project'
@@ -106,18 +133,18 @@ def main():
         return
 
     # Define paths and parameters
-    BATCH_SIZE = 16  # Adjust if necessary
+    BATCH_SIZE = 32  # Increased from 16 to 32 for A100's memory
     IMG_HEIGHT = 128
     IMG_WIDTH = 1024
     NUM_CLASSES = 10  # Update based on your dataset
-    EPOCHS = 15  # Total number of epochs
+    TOTAL_EPOCHS = 15  # Total number of epochs
     MODEL_SAVE_DIR = os.path.join(DRIVE_ROOT, 'models')
     os.makedirs(MODEL_SAVE_DIR, exist_ok=True)
 
     TRAIN_CSV = os.path.join(DRIVE_ROOT, 'train_data_index.csv')
     VAL_CSV = os.path.join(DRIVE_ROOT, 'val_data_index.csv')
 
-    # Create data generators
+    # Create data generators with optimized pipeline
     train_generator, val_generator = create_data_generators(
         train_csv_file=TRAIN_CSV,
         val_csv_file=VAL_CSV,
@@ -149,16 +176,23 @@ def main():
     if os.path.exists(checkpoint_path):
         logger.info(f"Loading existing model from {checkpoint_path}")
         model = tf.keras.models.load_model(checkpoint_path)
-        # Optionally, you can load optimizer state or other parameters if needed
+        # No need to recompile if optimizer state is preserved
     else:
         logger.info("Creating a new model.")
         model = create_transfer_model(input_shape=(IMG_HEIGHT, IMG_WIDTH, 3), num_classes=NUM_CLASSES)
+        
+        # Define the optimizer with gradient clipping
+        optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, clipnorm=1.0)
+        
+        # Wrap the optimizer with mixed precision loss scaling
+        optimizer = mixed_precision.LossScaleOptimizer(optimizer)
+        
         model.compile(
-            optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
+            optimizer=optimizer,
             loss='categorical_crossentropy',
             metrics=['accuracy']
         )
-        logger.info("Model created and compiled.")
+        logger.info("Model created and compiled with mixed precision.")
 
     # Set up callbacks
     early_stop = EarlyStopping(
@@ -182,19 +216,29 @@ def main():
     )
     tensorboard_callback = TensorBoard(
         log_dir=os.path.join(DRIVE_ROOT, 'logs'),
-        histogram_freq=1
+        histogram_freq=1,
+        profile_batch=0  # Disable profiling
     )
+    epoch_saver = EpochSaver(MODEL_SAVE_DIR)
 
-    callbacks = [early_stop, model_checkpoint, lr_reduction, tensorboard_callback]
+    callbacks = [early_stop, model_checkpoint, lr_reduction, tensorboard_callback, epoch_saver]
 
     # Determine the number of epochs already trained
-    # Since we don't track it, we'll proceed without setting initial_epoch
+    current_epoch = load_current_epoch(MODEL_SAVE_DIR)
+    logger.info(f"Resuming training from epoch {current_epoch}")
+
+    # Adjust total epochs based on already trained epochs
+    remaining_epochs = TOTAL_EPOCHS - current_epoch
+    if remaining_epochs <= 0:
+        logger.info("Training already completed for the specified number of epochs.")
+        return
 
     # Train the model
     logger.info("Starting model training...")
     history = model.fit(
         train_generator,
-        epochs=EPOCHS,
+        epochs=TOTAL_EPOCHS,
+        initial_epoch=current_epoch,
         validation_data=val_generator,
         callbacks=callbacks,
         class_weight=class_weights_dict,
@@ -221,5 +265,6 @@ def main():
     # Upload 'music_genre_cnn_final.keras' to S3
     final_model_s3_path = os.path.join(MODEL_S3_PREFIX, 'music_genre_cnn_final.keras')
     upload_to_s3(s3_client, final_model_path, MODEL_S3_BUCKET, final_model_s3_path)
+
 if __name__ == "__main__":
     main()
