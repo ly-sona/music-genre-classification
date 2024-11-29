@@ -1,6 +1,13 @@
 # train_model.py
 
 import os
+
+# 1. Disable XLA to prevent aggressive kernel fusion that can increase register usage
+# os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=2'  # Commented out to disable XLA
+
+# 2. Disable MLIR graph optimizations to reduce register allocations
+os.environ['TF_DISABLE_MLIR_GRAPH_OPTIMIZATION'] = '1'
+
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, TensorBoard
 from tensorflow.keras import mixed_precision
@@ -14,9 +21,6 @@ import pandas as pd
 import numpy as np
 from sklearn.utils import class_weight
 import json
-
-# Enable XLA compilation for TensorFlow
-os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=2'
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -56,7 +60,7 @@ def plot_training_history(history, save_dir):
     plt.close()
     logger.info(f"Loss plot saved to {loss_plot_path}")
 
-    # Optionally, display plots in Colab
+    # Optionally, display plots in environments like Jupyter/Colab
     from IPython.display import Image, display
     display(Image(filename=accuracy_plot_path))
     display(Image(filename=loss_plot_path))
@@ -133,7 +137,7 @@ def main():
         return
 
     # Define paths and parameters
-    BATCH_SIZE = 32  # Increased from 16 to 32 for A100's memory
+    BATCH_SIZE = 16  # Reduced from 32 to mitigate register spilling
     IMG_HEIGHT = 128
     IMG_WIDTH = 1024
     NUM_CLASSES = 10  # Update based on your dataset
@@ -143,6 +147,10 @@ def main():
 
     TRAIN_CSV = os.path.join(DRIVE_ROOT, 'train_data_index.csv')
     VAL_CSV = os.path.join(DRIVE_ROOT, 'val_data_index.csv')
+
+    # Enable mixed precision
+    mixed_precision.set_global_policy('mixed_float16')
+    logger.info("Mixed precision enabled.")
 
     # Create data generators with optimized pipeline
     train_generator, val_generator = create_data_generators(
@@ -217,7 +225,7 @@ def main():
     tensorboard_callback = TensorBoard(
         log_dir=os.path.join(DRIVE_ROOT, 'logs'),
         histogram_freq=1,
-        profile_batch=0  # Disable profiling
+        profile_batch=0  # Disable profiling to reduce overhead
     )
     epoch_saver = EpochSaver(MODEL_SAVE_DIR)
 
