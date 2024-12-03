@@ -1,12 +1,10 @@
-# app.py
-
 import logging
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import os
 from werkzeug.utils import secure_filename
 import yt_dlp
-from moviepy.editor import VideoFileClip
+from moviepy import *
 import uuid
 from datetime import datetime
 import tensorflow as tf
@@ -15,7 +13,10 @@ import numpy as np
 import librosa
 import io
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, NoCredentialsError, PartialCredentialsError
+
+# Initialize global model variable
+model = None
 
 # Configure logging
 logging.basicConfig(
@@ -31,7 +32,7 @@ genre_map = {
     'Classical': 0,
     'Electronic': 1,
     'Folk': 2,
-    'Hip_Hop': 3,
+    'Hip_Hop': 3,    # Ensured consistency in key naming
     'Jazz': 4,
     'Pop': 5,
     'Reggae': 6,
@@ -45,12 +46,14 @@ class Config:
     UPLOADED_AUDIO_ALLOW = {'mp3', 'wav', 'ogg'}
     UPLOADED_AUDIO_DEST = 'uploads'
     MODELS_DIR = 'models'  # Directory to store models
-    MODEL_S3_BUCKET = 'your-s3-bucket-name'  # Replace with your S3 bucket name
-    MODEL_S3_KEY = 'path/to/music_genre_cnn_final.keras'  # Replace with your S3 object key
+    MODEL_S3_BUCKET = 'aims3'  # Replace with your S3 bucket name
+    MODEL_S3_KEY = 'trained_models/music_genre_cnn_final.keras'  # Replace with your S3 object key
     MODEL_LOCAL_PATH = os.path.join('models', 'music_genre_cnn_final.keras')
     MAX_CONTENT_LENGTH = 200 * 1024 * 1024  # Increased to 200 MB
+    AWS_REGION = 'us-east-1'  # Set to your S3 bucket's region
 
 def create_app():
+    global model  # Declare as global to modify the global model variable
     app = Flask(__name__)
     app.config.from_object(Config)
 
@@ -65,11 +68,23 @@ def create_app():
     logging.debug(f"Upload directory is set to: {upload_dir}")
     logging.debug(f"Models directory is set to: {models_dir}")
 
-    # Initialize S3 client
-    s3_client = boto3.client('s3')
+    # Initialize S3 client with the correct region and SSL verification
+    try:
+        s3_client = boto3.client(
+            's3',
+            region_name=app.config['AWS_REGION'],
+            verify=True  # Ensures SSL certificates are verified
+        )
+        logging.info("S3 client initialized successfully.")
+    except (NoCredentialsError, PartialCredentialsError) as cred_err:
+        logging.error(f"AWS Credentials error: {cred_err}")
+        s3_client = None
+    except Exception as e:
+        logging.exception(f"Failed to initialize S3 client: {e}")
+        s3_client = None
 
     # Download the model from S3 if it doesn't exist locally
-    if not os.path.exists(app.config['MODEL_LOCAL_PATH']):
+    if s3_client and not os.path.exists(app.config['MODEL_LOCAL_PATH']):
         logging.info(f"Model not found locally. Downloading from S3: {app.config['MODEL_S3_KEY']}")
         try:
             s3_client.download_file(
@@ -79,20 +94,30 @@ def create_app():
             )
             logging.info(f"Model downloaded successfully to {app.config['MODEL_LOCAL_PATH']}")
         except ClientError as e:
-            logging.exception(f"Failed to download model from S3: {e}")
-            # Depending on your application's needs, you might want to exit or handle this differently
+            if e.response['Error']['Code'] == '404':
+                logging.error("The model file does not exist in the specified S3 bucket.")
+            else:
+                logging.exception(f"Failed to download model from S3: {e}")
+            model = None
+        except Exception as e:
+            logging.exception(f"An unexpected error occurred while downloading the model: {e}")
+            model = None
+    elif s3_client:
+        logging.info(f"Model already exists at {app.config['MODEL_LOCAL_PATH']}")
+    else:
+        logging.error("S3 client is not initialized. Cannot download the model.")
+
+    # Load the trained model if the model file exists
+    MODEL_PATH = app.config['MODEL_LOCAL_PATH']
+    if os.path.exists(MODEL_PATH):
+        try:
+            model = load_model(MODEL_PATH)
+            logging.info(f"Model loaded successfully from {MODEL_PATH}")
+        except Exception as e:
+            logging.exception(f"Failed to load model: {e}")
             model = None
     else:
-        logging.info(f"Model already exists at {app.config['MODEL_LOCAL_PATH']}")
-
-    # Load the trained model
-    MODEL_PATH = app.config['MODEL_LOCAL_PATH']
-    try:
-        model = load_model(MODEL_PATH)
-        logging.info(f"Model loaded successfully from {MODEL_PATH}")
-    except Exception as e:
-        logging.exception(f"Failed to load model: {e}")
-        model = None
+        logging.error(f"Model file does not exist at {MODEL_PATH}. Ensure the model is downloaded correctly.")
 
     @app.route('/')
     def home():
@@ -103,8 +128,8 @@ def create_app():
         logging.debug("Received upload request")
 
         # Access the global model variable
-        global model
         if model is None:
+            logging.error("Model is not loaded.")
             return jsonify({'error': 'Model not loaded.'}), 500
 
         # Initialize variables
@@ -133,14 +158,22 @@ def create_app():
             filename = secure_filename(file.filename)
             if '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['UPLOADED_AUDIO_ALLOW']:
                 filepath = os.path.join(upload_dir, filename)
-                file.save(filepath)
-                logging.debug(f"File saved to {filepath}")
+                try:
+                    file.save(filepath)
+                    logging.debug(f"File saved to {filepath}")
+                except Exception as e:
+                    logging.exception(f"Failed to save uploaded file: {e}")
+                    return jsonify({'error': 'Failed to save uploaded file.'}), 500
 
                 # Preprocess and predict
                 try:
                     spectrogram = preprocess_audio(filepath)
+                    if spectrogram.shape != (128, 1024, 3):
+                        logging.error(f"Preprocessed spectrogram has incorrect shape: {spectrogram.shape}")
+                        return jsonify({'error': 'Internal server error during preprocessing.'}), 500
                     predictions = model.predict(np.expand_dims(spectrogram, axis=0))
                     genres = format_predictions(predictions[0])
+                    logging.debug(f"Predictions: {genres}")
                 except Exception as e:
                     logging.exception(f"Error during prediction: {e}")
                     return jsonify({'error': f'Error during prediction: {str(e)}'}), 500
@@ -177,13 +210,13 @@ def create_app():
                 timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
                 safe_song_name = secure_filename(song_name)
                 safe_artist = secure_filename(artist)
-                audio_filename = f"{safe_song_name}-{safe_artist}_{timestamp}_{unique_id}.mp3"
-                audio_filepath = os.path.join(upload_dir, audio_filename)
+                audio_filename_template = f"{safe_song_name}-{safe_artist}_{timestamp}_{unique_id}.%(ext)s"
+                audio_filepath_template = os.path.join(upload_dir, audio_filename_template)
 
                 # Use yt-dlp to download and extract audio
                 ydl_opts = {
                     'format': 'bestaudio/best',
-                    'outtmpl': audio_filepath,
+                    'outtmpl': audio_filepath_template,  # Use template with %(ext)s
                     'postprocessors': [{
                         'key': 'FFmpegExtractAudio',
                         'preferredcodec': 'mp3',
@@ -194,21 +227,26 @@ def create_app():
                     'noplaylist': True,
                 }
 
-                logging.debug(f"Downloading audio from URL to {audio_filepath}")
+                logging.debug(f"Downloading audio from URL to {audio_filepath_template}")
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([url])
-                logging.debug(f"Audio downloaded to {audio_filepath}")
+                final_audio_filepath = audio_filepath_template.replace('.%(ext)s', '.mp3')
+                logging.debug(f"Audio downloaded to {final_audio_filepath}")
 
                 # Check if the file exists
-                if not os.path.exists(audio_filepath):
-                    logging.error(f"Downloaded audio file does not exist at path: {audio_filepath}")
+                if not os.path.exists(final_audio_filepath):
+                    logging.error(f"Downloaded audio file does not exist at path: {final_audio_filepath}")
                     return jsonify({'error': 'Failed to download audio file.'}), 500
 
                 # Preprocess and predict
                 try:
-                    spectrogram = preprocess_audio(audio_filepath)
+                    spectrogram = preprocess_audio(final_audio_filepath)
+                    if spectrogram.shape != (128, 1024, 3):
+                        logging.error(f"Preprocessed spectrogram has incorrect shape: {spectrogram.shape}")
+                        return jsonify({'error': 'Internal server error during preprocessing.'}), 500
                     predictions = model.predict(np.expand_dims(spectrogram, axis=0))
                     genres = format_predictions(predictions[0])
+                    logging.debug(f"Predictions: {genres}")
                 except Exception as e:
                     logging.exception(f"Error during prediction: {e}")
                     return jsonify({'error': f'Error during prediction: {str(e)}'}), 500
@@ -218,7 +256,7 @@ def create_app():
 
                 return jsonify({
                     'message': 'YouTube URL processed and audio analyzed successfully',
-                    'filename': audio_filename,
+                    'filename': os.path.basename(final_audio_filepath),
                     'song_name': song_name,
                     'artist': artist,
                     'cover_image_url': cover_image_url,
@@ -239,59 +277,72 @@ def create_app():
         """
         Load an audio file and preprocess it into a spectrogram suitable for the model.
         """
-        # Load audio using librosa
-        y, sr = librosa.load(file_path, sr=None)
-        # Generate mel spectrogram
-        spectrogram = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128, fmax=8000)
-        spectrogram_db = librosa.power_to_db(spectrogram, ref=np.max)
-        # Resize or pad spectrogram to (128, 1024)
-        target_height = 128
-        target_width = 1024
-        current_height, current_width = spectrogram_db.shape
+        try:
+            # Load audio using librosa
+            y, sr = librosa.load(file_path, sr=None)
+            # Generate mel spectrogram
+            spectrogram = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128, fmax=8000)
+            spectrogram_db = librosa.power_to_db(spectrogram, ref=np.max)
+            # Resize or pad spectrogram to (128, 1024)
+            target_height = 128
+            target_width = 1024
+            current_height, current_width = spectrogram_db.shape
 
-        # Resize or pad height
-        if current_height < target_height:
-            padding_height = target_height - current_height
-            top_padding = padding_height // 2
-            bottom_padding = padding_height - top_padding
-            padded_spectrogram = np.pad(spectrogram_db, ((top_padding, bottom_padding), (0, 0)), 'constant')
-        elif current_height > target_height:
-            padded_spectrogram = spectrogram_db[:target_height, :]
-        else:
-            padded_spectrogram = spectrogram_db
+            # Resize or pad height
+            if current_height < target_height:
+                padding_height = target_height - current_height
+                top_padding = padding_height // 2
+                bottom_padding = padding_height - top_padding
+                padded_spectrogram = np.pad(spectrogram_db, ((top_padding, bottom_padding), (0, 0)), 'constant')
+            elif current_height > target_height:
+                padded_spectrogram = spectrogram_db[:target_height, :]
+            else:
+                padded_spectrogram = spectrogram_db
 
-        # Resize or pad width
-        current_height, current_width = padded_spectrogram.shape
-        if current_width < target_width:
-            padding_width = target_width - current_width
-            left_padding = padding_width // 2
-            right_padding = padding_width - left_padding
-            padded_spectrogram = np.pad(padded_spectrogram, ((0, 0), (left_padding, right_padding)), 'constant')
-        elif current_width > target_width:
-            padded_spectrogram = padded_spectrogram[:, :target_width]
+            # Resize or pad width
+            current_height, current_width = padded_spectrogram.shape
+            if current_width < target_width:
+                padding_width = target_width - current_width
+                left_padding = padding_width // 2
+                right_padding = padding_width - left_padding
+                padded_spectrogram = np.pad(padded_spectrogram, ((0, 0), (left_padding, right_padding)), 'constant')
+            elif current_width > target_width:
+                padded_spectrogram = padded_spectrogram[:, :target_width]
 
-        # Normalize spectrogram
-        min_val = np.min(padded_spectrogram)
-        max_val = np.max(padded_spectrogram)
-        normalized_spectrogram = (padded_spectrogram - min_val) / (max_val - min_val)
+            # Normalize spectrogram
+            min_val = np.min(padded_spectrogram)
+            max_val = np.max(padded_spectrogram)
+            if max_val - min_val == 0:
+                normalized_spectrogram = np.zeros_like(padded_spectrogram)
+            else:
+                normalized_spectrogram = (padded_spectrogram - min_val) / (max_val - min_val)
 
-        # Add channel dimension
-        normalized_spectrogram = np.expand_dims(normalized_spectrogram, axis=-1)
+            # Add channel dimension
+            normalized_spectrogram = np.expand_dims(normalized_spectrogram, axis=-1)
+            # Replicate the single channel to create 3 channels
+            normalized_spectrogram = np.repeat(normalized_spectrogram, 3, axis=-1)
 
-        return normalized_spectrogram
+            return normalized_spectrogram
+        except Exception as e:
+            logging.exception(f"Failed to preprocess audio file {file_path}: {e}")
+            raise e
 
     def format_predictions(predictions):
         """
         Convert model predictions into a list of genres with confidence scores.
         """
-        # Assuming predictions are probabilities for each class
-        top_indices = predictions.argsort()[-3:][::-1]  # Top 3 predictions
-        genres = []
-        for idx in top_indices:
-            genre_name = index_to_genre.get(idx, "Unknown")
-            confidence = float(predictions[idx] * 100)  # Convert to percentage
-            genres.append({"name": genre_name, "confidence": round(confidence, 2)})
-        return genres
+        try:
+            # Assuming predictions are probabilities for each class
+            top_indices = predictions.argsort()[-3:][::-1]  # Top 3 predictions
+            genres = []
+            for idx in top_indices:
+                genre_name = index_to_genre.get(idx, "Unknown")
+                confidence = float(predictions[idx] * 100)  # Convert to percentage
+                genres.append({"name": genre_name, "confidence": round(confidence, 2)})
+            return genres
+        except Exception as e:
+            logging.exception(f"Failed to format predictions: {e}")
+            raise e
 
     @app.route('/uploads/<filename>')
     def uploaded_file(filename):
@@ -310,7 +361,7 @@ def create_app():
                 logging.debug(f"File {safe_filename} deleted successfully.")
                 return jsonify({'message': f'File {safe_filename} deleted successfully.'}), 200
             except Exception as e:
-                logging.exception(f"Error deleting file {safe_filename}: {str(e)}")
+                logging.exception(f"Error deleting file {safe_filename}: {e}")
                 return jsonify({'error': f'Error deleting file: {str(e)}'}), 500
         else:
             logging.error(f"File {safe_filename} does not exist.")
@@ -320,4 +371,7 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True)
+    if model is not None:
+        app.run(debug=True, port=5001)  # Changed port to 5001 as per your frontend request
+    else:
+        logging.error("Application will not start without the model. Please ensure the model is available.")
