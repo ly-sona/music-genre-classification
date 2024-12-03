@@ -1,47 +1,52 @@
 // src/pages/AboutUs.jsx
 import React from 'react';
+import AnuImage from '../assets/AIMProjectAnu.png'
+import AgnusImage from '../assets/AIMProjectAgnus.png'
+import RishiImage from '../assets/AIMProjectRishi.png'
+import OwenImage from '../assets/AIMProjectOwen.png'
+import YashImage from '../assets/AIMProjectYash.png'
 
 function AboutUs() {
   const teamMembers = [
     {
       name: 'Anu Boyapati',
-      image: 'AIMProjectAnu.png', // Use the imported image
+      image: AnuImage,
       description: 'Junior in Computer Science and hobbyist writer.',
       linkedin: 'https://linkedin.com/in/anushrutha-boyapati',
       github: 'https://github.com/ly-sona',
     },
     {
-      name: 'Bob Smith',
-      image: 'AIMProjectAnu.png', // Replace with actual path or import
-      description: 'Machine Learning Engineer specializing in audio analysis.',
-      linkedin: 'https://linkedin.com/in/bobsmith',
-      github: 'https://github.com/bobsmith',
+      name: 'Agnus Thomas',
+      image: AgnusImage,
+      description: 'Junior in Computer Science and loves games.',
+      linkedin: 'https://www.linkedin.com/in/agnus-thom/',
+      github: 'https://github.com/raspberryhelp',
     },
     {
-      name: 'Carol Williams',
-      image: 'AIMProjectAnu.png', // Replace with actual path or import
-      description: 'UI/UX Designer with a love for creating intuitive interfaces.',
-      linkedin: 'https://linkedin.com/in/carolwilliams',
-      github: 'https://github.com/carolwilliams',
+      name: 'Owen Walters',
+      image: OwenImage,
+      description: 'Sophomore in Computer Science with a love for math.',
+      linkedin: 'https://www.linkedin.com/in/owen-walters-233980215',
+      github: 'https://github.com/OWalters-Hub',
     },
     {
-      name: 'David Brown',
-      image: 'AIMProjectAnu.png', // Replace with actual path or import
-      description: 'Backend Developer focused on scalable systems.',
-      linkedin: 'https://linkedin.com/in/davidbrown',
-      github: 'https://github.com/davidbrown',
+      name: 'Rishi Chodavarapu',
+      image: RishiImage, 
+      description: 'Junior in Computer Science and loves movies.',
+      linkedin: 'https://www.linkedin.com/in/rishinaiducs/',
+      github: 'hhttps://github.com/Rishi-Naidu',
     },
     {
-      name: 'Eve Davis',
-      image: 'AIMProjectAnu.png', // Replace with actual path or import
-      description: 'Data Scientist with a knack for finding patterns in data.',
-      linkedin: 'https://linkedin.com/in/evedavis',
-      github: 'https://github.com/evedavis',
+      name: 'Yash Baruah',
+      image: YashImage,
+      description: 'Freshman in Computer Science and likes to read.',
+      linkedin: 'https://www.linkedin.com/in/yashbaruah/',
+      github: 'https://github.com/bornayo7',
     },
     {
-      name: 'Eve Davis',
+      name: 'Skye Drechsler',
       image: 'AIMProjectAnu.png', // Replace with actual path or import
-      description: 'Data Scientist with a knack for finding patterns in data.',
+      description: 'Sophomore in Computer Science and likes baseball.',
       linkedin: 'https://linkedin.com/in/evedavis',
       github: 'https://github.com/evedavis',
     },
@@ -67,7 +72,7 @@ function AboutUs() {
           {teamMembers.map((member, index) => (
             <div
               key={index}
-              className="flex flex-col items-center bg-slate-900 rounded-lg shadow-lg p-6"
+              className="flex flex-col items-center bg-slate-200 rounded-lg shadow-lg p-6"
             >
               <div className="w-32 h-32 mb-4">
                 <img
@@ -76,21 +81,35 @@ function AboutUs() {
                   className="object-cover w-full h-full rounded-lg"
                 />
               </div>
-              <h3 className="text-xl font-semibold text-purple-600 mb-2">
+              <h3 className="text-xl font-semibold text-purple-700 mb-2">
                 {member.name}
               </h3>
-              <p className="text-center text-purple-500 mb-4">
+              <p className="text-center text-purple-600 mb-4">
                 {member.description}
               </p>
               <div className="flex space-x-4">
-                <a
-                  href={member.linkedin}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-700 text-white rounded-lg shadow-lg hover:from-blue-600 hover:to-blue-800 transition duration-300"
+              <a
+                href={member.linkedin}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white bg-[#007ebb] hover:bg-[#007ebb]/90 focus:ring-4 focus:outline-none focus:ring-[#007ebb]/50 font-medium rounded-lg text-sm px-5 py-2.5 inline-flex items-center mb-2"
+              >
+                {/* LinkedIn SVG Icon */}
+                <svg
+                  className="w-4 h-4 mr-2"
+                  fill="currentColor"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 260.366 260.366"
+                  aria-hidden="true"
                 >
-                  LinkedIn
-                </a>
+                  <g>
+                    <path d="M34.703,0.183C15.582,0.183,0.014,15.748,0,34.884C0,54.02,15.568,69.588,34.703,69.588c19.128,0,34.688-15.568,34.688-34.704C69.391,15.75,53.83,0.183,34.703,0.183z" />
+                    <path d="M60.748,83.531H8.654c-2.478,0-4.488,2.009-4.488,4.489v167.675c0,2.479,2.01,4.488,4.488,4.488h52.093c2.479,0,4.489-2.01,4.489-4.488V88.02C65.237,85.539,63.227,83.531,60.748,83.531z" />
+                    <path d="M193.924,81.557c-19.064,0-35.817,5.805-46.04,15.271V88.02c0-2.48-2.01-4.489-4.489-4.489H93.424c-2.479,0-4.489,2.009-4.489,4.489v167.675c0,2.479,2.01,4.488,4.489,4.488h52.044c2.479,0,4.489-2.01,4.489-4.488v-82.957c0-23.802,4.378-38.555,26.227-38.555c21.526,0.026,23.137,15.846,23.137,39.977v81.535c0,2.479,2.01,4.488,4.49,4.488h52.068c2.478,0,4.488-2.01,4.488-4.488v-91.977C260.366,125.465,252.814,81.557,193.924,81.557z" />
+                  </g>
+                </svg>
+                LinkedIn
+              </a>
                 {/* Updated GitHub Button */}
                 <a
                   href={member.github}
